@@ -5,7 +5,6 @@
       class="pitch"
       ref="fieldRef"
       :id="exportId"
-      :style="{ '--field-color': teamColor }"
       @dragover.prevent
       @drop="onFieldDrop"
       @touchmove.prevent="onTouchMove"
@@ -251,7 +250,7 @@ function onTouchEnd(event) {
   width: min(100%, calc(100cqh * 5 / 8));
   height: auto;
   aspect-ratio: 5 / 8;
-  background: color-mix(in srgb, var(--field-color, #059669) 85%, #065f46);
+  background: color-mix(in srgb, #059669 85%, #065f46);
   border-radius: var(--md-shape-md);
   overflow: hidden;
   box-shadow: var(--md-elevation-3);
