@@ -58,7 +58,7 @@
         :key="slot.slotId"
         :player="slot.player"
         :x="slot.x"
-        :y="slot.y"
+        :y="slot.dy"
         :team-color="teamColor"
         :is-dragging="draggingId === slot.slotId"
         @drag-start="onTokenDragStart($event, slot)"
@@ -71,7 +71,7 @@
         v-for="slot in emptySlots"
         :key="slot.slotId"
         class="empty-slot"
-        :style="posStyle(slot.x, slot.y)"
+        :style="posStyle(slot.x, slot.dy)"
         :class="{ 'drop-target': dragOverSlot === slot.slotId }"
         @dragover.prevent="dragOverSlot = slot.slotId"
         @dragleave="dragOverSlot = null"
@@ -101,18 +101,24 @@ const props = defineProps({
   players:     { type: Object, required: true }, // id → player map
   teamColor:   { type: String, default: '#1a6b3c' },
   exportId:    { type: String, default: 'field-export' },
+  flipped:     { type: Boolean, default: false }, // true = GK at bottom (default view)
 })
 
 const emit = defineEmits(['slot-drop', 'remove-from-slot'])
+
+// Flip helpers: storage y=0 is top (opponent); flipped=true shows GK (y≈6) at bottom
+function toDisplayY(storageY) { return props.flipped ? 100 - storageY : storageY }
+function toStorageY(displayY)  { return props.flipped ? 100 - displayY : displayY }
 
 // ── Computed helpers ─────────────────────────────────────────
 const filledSlots = computed(() =>
   props.slots
     .filter(s => s.playerId && props.players[s.playerId])
-    .map(s => ({ ...s, player: props.players[s.playerId] }))
+    .map(s => ({ ...s, player: props.players[s.playerId], dy: toDisplayY(s.y) }))
 )
 const emptySlots = computed(() =>
   props.slots.filter(s => !s.playerId)
+    .map(s => ({ ...s, dy: toDisplayY(s.y) }))
 )
 
 function posStyle(xPct, yPct) {
@@ -153,8 +159,9 @@ function onFieldDrop(event) {
   const data = (parsed.type === 'slot' && draggingData.value) ? draggingData.value : parsed
   draggingData.value = null
   const rect = fieldRef.value.getBoundingClientRect()
-  const x = ((event.clientX - rect.left) / rect.width)  * 100
-  const y = ((event.clientY - rect.top)  / rect.height) * 100
+  const x    = ((event.clientX - rect.left) / rect.width)  * 100
+  const rawY = ((event.clientY - rect.top)  / rect.height) * 100
+  const y    = toStorageY(rawY)
   emit('slot-drop', { ...data, targetX: x, targetY: y, targetSlotId: null })
 }
 
@@ -203,14 +210,14 @@ function onTouchEnd(event) {
   if (!touchGhost.value || !touchSlot.value) return
   const touch = event.changedTouches[0]
   const rect  = fieldRef.value.getBoundingClientRect()
-  const x = ((touch.clientX - rect.left) / rect.width)  * 100
-  const y = ((touch.clientY - rect.top)  / rect.height) * 100
+  const x    = ((touch.clientX - rect.left) / rect.width)  * 100
+  const rawY = ((touch.clientY - rect.top)  / rect.height) * 100
 
-  // Check if dropped on an empty slot
+  // Snap search: compare visual drop position against display coords of each slot
   const target = props.slots.find(s => {
     if (s.playerId) return false
     const dx = Math.abs(s.x - x)
-    const dy = Math.abs(s.y - y)
+    const dy = Math.abs(toDisplayY(s.y) - rawY)
     return dx < 8 && dy < 8
   })
 
@@ -219,7 +226,7 @@ function onTouchEnd(event) {
     slot: touchSlot.value,
     targetSlotId: target?.slotId ?? null,
     targetX: target ? target.x : x,
-    targetY: target ? target.y : y,
+    targetY: target ? target.y : toStorageY(rawY),
   })
 
   touchGhost.value = null

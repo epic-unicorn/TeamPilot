@@ -77,6 +77,10 @@
         <span class="material-symbols-rounded" style="font-size:14px">edit</span>
         Vrij
       </button>
+      <button class="chip" @click="flipped = !flipped" :title="flipped ? 'Aanval omhoog' : 'Keeper omlaag'">
+        <span class="material-symbols-rounded" style="font-size:14px">swap_vert</span>
+        Omdraaien
+      </button>
     </div>
 
     <!-- Main layout: field + bench -->
@@ -113,6 +117,7 @@
           :slots="fieldSlots"
           :players="playersMap"
           :team-color="activeTeam?.color"
+          :flipped="flipped"
           export-id="field-export-area"
           @slot-drop="handleSlotDrop"
           @remove-from-slot="removeFromSlot"
@@ -222,6 +227,7 @@ function startNew() {
   // Reset state in place (avoids remount flicker on /lineup/new)
   lineupId.value   = null
   lineupName.value = ''
+  flipped.value    = true
   if (availableFormations.value.length) {
     applyFormation(availableFormations.value[0])
   } else {
@@ -248,6 +254,7 @@ const playersMap = computed(() => {
 const lineupId           = ref(null)
 const lineupName         = ref('')
 const selectedFormationId = ref(null)
+const flipped             = ref(true) // true = GK at bottom (default)
 
 // fieldSlots: [{ slotId, position, x, y, playerId|null }]
 const fieldSlots = ref([])
@@ -270,6 +277,7 @@ onMounted(() => {
       lineupName.value = existing.name
       selectedFormationId.value = existing.formationId ?? null
       fieldSlots.value = existing.slots.map(s => ({ ...s }))
+      flipped.value    = existing.flipped ?? true
       store.setActiveLineup(existing.id)
       return
     }
@@ -384,12 +392,14 @@ function onBenchTouchStart({ event, player }) {
     const rect = fieldEl.getBoundingClientRect()
     if (t.clientX >= rect.left && t.clientX <= rect.right &&
         t.clientY >= rect.top  && t.clientY <= rect.bottom) {
+      const rawX = ((t.clientX - rect.left) / rect.width)  * 100
+      const rawY = ((t.clientY - rect.top)  / rect.height) * 100
       handleSlotDrop({
         type:         'bench',
         playerId:     pendingBenchPlayer.id,
         targetSlotId: null,
-        targetX:      ((t.clientX - rect.left) / rect.width)  * 100,
-        targetY:      ((t.clientY - rect.top)  / rect.height) * 100,
+        targetX:      rawX,
+        targetY:      flipped.value ? 100 - rawY : rawY,
       })
     }
     pendingBenchPlayer = null
@@ -531,6 +541,7 @@ function doSave() {
     id:          lineupId.value ?? undefined,
     name:        lineupName.value,
     formationId: selectedFormationId.value,
+    flipped:     flipped.value,
     slots:       fieldSlots.value.map(s => ({ ...s })),
   })
   lineupId.value = saved.id
