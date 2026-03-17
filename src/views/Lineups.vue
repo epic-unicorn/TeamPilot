@@ -28,26 +28,6 @@
         :key="lineup.id"
         class="lineup-card card card-elevated"
       >
-        <!-- Mini field preview -->
-        <div class="mini-field" :style="{ '--fc': activeTeam?.color }">
-          <svg class="mini-markings" viewBox="0 0 100 160" preserveAspectRatio="none">
-            <rect x="0" y="0" width="100" height="160" fill="none"/>
-            <line x1="0" y1="80" x2="100" y2="80" stroke="rgba(255,255,255,.4)" stroke-width="1"/>
-            <circle cx="50" cy="80" r="15" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1"/>
-            <rect x="2" y="2" width="96" height="156" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1"/>
-            <rect x="22" y="2"  width="56" height="22" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1"/>
-            <rect x="22" y="136" width="56" height="22" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1"/>
-          </svg>
-          <!-- Player dots -->
-          <div
-            v-for="slot in lineup.slots.filter(s => s.playerId)"
-            :key="slot.slotId"
-            class="mini-dot"
-            :style="{ left: slot.x + '%', top: slot.y + '%', background: activeTeam?.color }"
-            :title="playerName(slot.playerId)"
-          ></div>
-        </div>
-
         <div class="lineup-info">
           <p class="md-title-sm lineup-name">{{ lineup.name }}</p>
           <p class="md-body-sm" style="color:var(--md-on-surface-variant)">
@@ -161,29 +141,6 @@ function doDelete() {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-.mini-field {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 5 / 4;
-  background: color-mix(in srgb, var(--fc, #1a6b3c) 85%, #2d5a1b);
-  overflow: hidden;
-}
-.mini-markings {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-.mini-dot {
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  border: 1.5px solid rgba(255,255,255,.7);
-  box-shadow: 0 1px 3px rgba(0,0,0,.4);
 }
 .lineup-info {
   padding: var(--sp-3) var(--sp-4) var(--sp-2);

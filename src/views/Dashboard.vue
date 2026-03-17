@@ -35,14 +35,6 @@
           :to="`/lineup/${lineup.id}`"
           class="recent-item card"
         >
-          <div class="recent-dot-field" :style="{ '--fc': activeTeam?.color }">
-            <div
-              v-for="slot in lineup.slots.filter(s=>s.playerId).slice(0,11)"
-              :key="slot.slotId"
-              class="rdot"
-              :style="{ left: slot.x+'%', top: slot.y+'%', background: activeTeam?.color }"
-            ></div>
-          </div>
           <div class="recent-info">
             <p class="md-title-sm">{{ lineup.name }}</p>
             <p class="md-body-sm" style="color:var(--md-on-surface-variant)">
@@ -184,24 +176,10 @@ const TEAM_COLORS = [
 }
 .recent-item:hover { box-shadow: var(--md-elevation-2); }
 
-.recent-dot-field {
-  position: relative;
-  width: 48px;
-  height: 32px;
-  background: color-mix(in srgb, var(--fc, #1a6b3c) 85%, #2d5a1b);
-  border-radius: var(--md-shape-xs);
-  flex-shrink: 0;
-  overflow: hidden;
+.recent-info {
+  flex: 1;
+  min-width: 0;
 }
-.rdot {
-  position: absolute;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  border: 1px solid rgba(255,255,255,.7);
-}
-.recent-info { flex: 1; min-width: 0; }
 .recent-info .md-title-sm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Desktop: restore full size for recent lineups */
