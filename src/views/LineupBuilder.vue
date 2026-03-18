@@ -750,15 +750,15 @@ function _rdRect(ctx, x, y, w, h, r) {
 }
 
 function drawShareCanvas() {
-  const SCALE    = 2
-  const W        = 480
-  const PITCH_H  = Math.round(W * 8 / 5)  // 768
-  const PAD      = 14
-  const HEADER_H = 56
+  const SCALE    = 3
+  const W        = 540
+  const PITCH_H  = Math.round(W * 8 / 5)  // 864
+  const PAD      = 16
+  const HEADER_H = 64
   const bench    = benchPlayers.value
   const COLS     = 3
-  const BENCH_ROW = 36
-  const BENCH_H  = bench.length ? Math.ceil(bench.length / COLS) * BENCH_ROW + 48 : 0
+  const BENCH_ROW = 40
+  const BENCH_H  = bench.length ? Math.ceil(bench.length / COLS) * BENCH_ROW + 52 : 0
   const TOTAL_H  = HEADER_H + PITCH_H + BENCH_H
 
   const canvas = document.createElement('canvas')
@@ -822,12 +822,12 @@ function drawShareCanvas() {
   ctx.fillStyle = teamColor
   ctx.fillRect(0, 0, W, HEADER_H)
   ctx.fillStyle = '#fff'
-  ctx.font = 'bold 16px system-ui,sans-serif'
+  ctx.font = 'bold 22px system-ui,sans-serif'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'middle'
   ctx.fillText(lineupName.value || 'Opstelling', 16, HEADER_H / 2)
   if (activeTeam.value?.name) {
-    ctx.font = '13px system-ui,sans-serif'
+    ctx.font = '17px system-ui,sans-serif'
     ctx.fillStyle = 'rgba(255,255,255,.75)'
     ctx.textAlign = 'right'
     ctx.fillText(activeTeam.value.name, W - 16, HEADER_H / 2)
@@ -870,16 +870,16 @@ function drawShareCanvas() {
     const dY = flipped.value ? 100 - slot.y : slot.y
     const cx = mx + (slot.x / 100) * mw
     const cy = my + (dY   / 100) * mh
-    const r  = 16
+    const r  = 28
     ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 5; ctx.shadowOffsetY = 2
     drawShirtCircle(cx, cy, r, ini)
     ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
     const first = parts[0].length > 8 ? parts[0].slice(0,7) + '.' : parts[0]
-    ctx.font = 'bold 8px system-ui,sans-serif'
-    const lw = ctx.measureText(first).width + 8
+    ctx.font = 'bold 15px system-ui,sans-serif'
+    const lw = ctx.measureText(first).width + 10
     ctx.fillStyle = 'rgba(0,0,0,.6)'
-    _rdRect(ctx, cx - lw / 2, cy + r + 2, lw, 13, 3); ctx.fill()
-    ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.fillText(first, cx, cy + r + 8)
+    _rdRect(ctx, cx - lw / 2, cy + r + 4, lw, 20, 4); ctx.fill()
+    ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.fillText(first, cx, cy + r + 14)
   }
 
   // Bench section
@@ -900,14 +900,14 @@ function drawShareCanvas() {
       ctx.shadowColor = 'rgba(0,0,0,.08)'; ctx.shadowBlur = 3; ctx.shadowOffsetY = 1
       ctx.fillStyle = '#fff'; _rdRect(ctx, cx, cy, cw, ch, 14); ctx.fill()
       ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
-      const ar = 10, ax = cx + ar + 4, ay = cy + ch / 2
+      const ar = 22, ax = cx + ar + 4, ay = cy + ch / 2
       ctx.shadowColor = 'rgba(0,0,0,.15)'; ctx.shadowBlur = 2
       const parts = player.name.trim().split(/\s+/)
       const ini   = parts.length === 1 ? parts[0].slice(0,2).toUpperCase() : (parts[0][0] + parts[parts.length-1][0]).toUpperCase()
       drawShirtCircle(ax, ay, ar, ini)
       ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
       const first = parts[0].length > 10 ? parts[0].slice(0,9) + '.' : parts[0]
-      ctx.fillStyle = '#1e293b'; ctx.font = '500 10px system-ui,sans-serif'
+      ctx.fillStyle = '#1e293b'; ctx.font = '500 14px system-ui,sans-serif'
       ctx.textAlign = 'left'; ctx.fillText(first, ax + ar + 4, ay)
     })
   }
