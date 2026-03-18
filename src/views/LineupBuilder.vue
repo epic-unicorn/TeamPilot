@@ -260,6 +260,20 @@ const route  = useRoute()
 const router = useRouter()
 const isDesktop = useMediaQuery('(min-width: 720px)')
 
+// ── Field positioning constants ─────────────────────────────────
+const GRID_SIZE = 8  // 8x8 grid for snapping
+const GRID_STEP = 100 / GRID_SIZE  // 12.5% between grid points
+const MIN_GRID_POS = 0
+const MAX_GRID_POS = GRID_SIZE - 1
+
+function snapToGrid(value) {
+  // Snap a position (0-100) to nearest grid point
+  const normalized = value / GRID_STEP
+  const snapped = Math.round(normalized)
+  const clamped = Math.max(MIN_GRID_POS, Math.min(MAX_GRID_POS, snapped))
+  return clamped * GRID_STEP
+}
+
 // ── Lineup switcher ────────────────────────────────────────
 const showSwitcher = ref(false)
 const switcherRef  = ref(null)
@@ -548,9 +562,9 @@ function handleSlotDrop({ type, slot, slotId, playerId, targetSlotId, targetX, t
         srcSlot.playerId = tmp
       }
     } else {
-      // Free reposition
-      srcSlot.x = Math.min(Math.max(targetX, 5), 95)
-      srcSlot.y = Math.min(Math.max(targetY, 5), 95)
+      // Free reposition — snap to grid
+      srcSlot.x = snapToGrid(targetX)
+      srcSlot.y = snapToGrid(targetY)
     }
   } else if (type === 'bench') {
     // Dropping a bench player onto the field
@@ -575,12 +589,12 @@ function handleSlotDrop({ type, slot, slotId, playerId, targetSlotId, targetX, t
       }
       // All formation slots filled — do nothing
     } else {
-      // Free mode: place at exact drop coordinates
+      // Free mode: place at exact drop coordinates, snapped to grid
       fieldSlots.value.push({
         slotId:   `free-${Date.now()}`,
         position: playersMap.value[pid]?.position ?? 'MID',
-        x: Math.min(Math.max(targetX, 5), 95),
-        y: Math.min(Math.max(targetY, 5), 95),
+        x: snapToGrid(targetX),
+        y: snapToGrid(targetY),
         playerId: pid,
       })
     }
@@ -613,6 +627,15 @@ function resetAll() {
 }
 
 function autoAssign() {
+  // Snap any free-mode slots to the grid before assigning
+  for (const slot of fieldSlots.value) {
+    // Only snap free-mode slots (those without a formation-defined position that's not in formation mode)
+    if (!selectedFormationId.value || slot.slotId.startsWith('free-')) {
+      slot.x = snapToGrid(slot.x)
+      slot.y = snapToGrid(slot.y)
+    }
+  }
+
   // Get empty slots and available bench players
   const emptySlots = fieldSlots.value.filter(s => !s.playerId)
   if (!emptySlots.length || !benchPlayers.value.length) return
