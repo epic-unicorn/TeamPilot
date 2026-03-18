@@ -208,6 +208,17 @@ function onTouchMove(event) {
 function onTouchEnd(event) {
   if (!touchGhost.value || !touchSlot.value) return
   const touch = event.changedTouches[0]
+  
+  // Check if touch ended over a bench panel or bank button — if so, remove from field
+  const targetEl = document.elementFromPoint(touch.clientX, touch.clientY)
+  const isBenchTarget = targetEl?.closest('.bench-panel') || targetEl?.closest('[data-bench-button]')
+  if (isBenchTarget) {
+    emit('remove-from-slot', touchSlot.value.slotId)
+    touchGhost.value = null
+    touchSlot.value  = null
+    return
+  }
+  
   const rect  = fieldRef.value.getBoundingClientRect()
   const x    = ((touch.clientX - rect.left) / rect.width)  * 100
   const rawY = ((touch.clientY - rect.top)  / rect.height) * 100

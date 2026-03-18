@@ -88,7 +88,7 @@
         <option value="">Vrije opstelling</option>
         <option v-for="f in availableFormations" :key="f.id" :value="f.id">{{ f.label }}</option>
       </select>
-      <button class="chip" :class="{ active: showBench }" @click="showBench = !showBench">
+      <button class="chip" :class="{ active: showBench }" @click="showBench = !showBench" data-bench-button title="Bank">
         <span class="material-symbols-rounded" style="font-size:14px">group</span>
         Bank
         <span v-if="benchPlayers.length" class="chip-badge">{{ benchPlayers.length }}</span>
@@ -128,6 +128,7 @@
           :horizontal="false"
           @bench-drag-start="onBenchDragStart"
           @bench-touch-start="onBenchTouchStart"
+          @field-drop="removePlayerFromField"
         />
 
         <!-- Share buttons: desktop only inside bench column -->
@@ -173,6 +174,7 @@
             :horizontal="false"
             @bench-drag-start="onBenchDragStart"
             @bench-touch-start="onBenchTouchStart"
+            @field-drop="removePlayerFromField"
           />
         </div>
       </div>
@@ -595,6 +597,11 @@ function removeFromSlot(slotId) {
     // Free mode: delete the slot entirely — no ghost circle left behind
     fieldSlots.value = fieldSlots.value.filter(s => s.slotId !== slotId)
   }
+}
+
+function removePlayerFromField({ slotId }) {
+  // Called when player is dropped on bench panel (desktop or mobile bottom sheet)
+  removeFromSlot(slotId)
 }
 
 function resetAll() {

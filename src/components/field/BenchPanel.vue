@@ -1,5 +1,5 @@
 <template>
-  <div class="bench-panel" :class="{ 'bench-h': horizontal }">
+  <div class="bench-panel" :class="{ 'bench-h': horizontal, 'drop-target': isDragOverBench }" @dragover.prevent="isDragOverBench=true" @dragleave="isDragOverBench=false" @drop.prevent="onBenchDrop">
     <p class="bench-title md-label-lg">
       <span class="material-symbols-rounded" style="font-size:16px;vertical-align:text-bottom">weekend</span>
       <span class="bench-title-text">Bank / Beschikbare spelers</span>
@@ -36,9 +36,10 @@ const props = defineProps({
   horizontal:   { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['bench-drag-start', 'bench-touch-start'])
+const emit = defineEmits(['bench-drag-start', 'bench-touch-start', 'field-drop'])
 
 const draggingPlayerId = ref(null)
+const isDragOverBench = ref(false)
 
 function initials(player) {
   const parts = player.name.trim().split(/\s+/)
@@ -65,6 +66,16 @@ function onDragStart(event, player) {
 function onTouchStart(event, player) {
   emit('bench-touch-start', { event, player })
 }
+
+function onBenchDrop(event) {
+  isDragOverBench.value = false
+  const raw = event.dataTransfer.getData('application/json')
+  if (!raw) return
+  const data = JSON.parse(raw)
+  if (data.type === 'slot') {
+    emit('field-drop', { slotId: data.slotId })
+  }
+}
 </script>
 
 <style scoped>
@@ -72,6 +83,11 @@ function onTouchStart(event, player) {
   background: var(--md-surface-variant);
   border-radius: var(--md-shape-md);
   padding: var(--sp-3);
+  transition: background var(--md-duration-short), border-color var(--md-duration-short);
+}
+.bench-panel.drop-target {
+  background: color-mix(in srgb, var(--md-primary) 15%, var(--md-surface-variant));
+  border: 2px solid var(--md-primary);
 }
 .bench-title {
   display: flex;
