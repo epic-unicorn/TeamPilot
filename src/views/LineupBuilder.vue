@@ -1219,10 +1219,9 @@ function shareLink() {
   .builder-page {
     height: auto;
     overflow: visible;
-    padding-bottom: var(--sp-6);
+    padding: var(--sp-4);
   }
   .builder-layout {
-    flex: unset;
     flex-direction: row;
     align-items: flex-start;
     gap: var(--sp-4);
