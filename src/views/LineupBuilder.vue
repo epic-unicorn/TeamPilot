@@ -261,8 +261,8 @@ const router = useRouter()
 const isDesktop = useMediaQuery('(min-width: 720px)')
 
 // ── Field positioning constants ─────────────────────────────────
-const GRID_SIZE = 8  // 8x8 grid for snapping
-const GRID_STEP = 100 / GRID_SIZE  // 12.5% between grid points
+const GRID_SIZE = 16  // 16x16 grid for finer snapping precision
+const GRID_STEP = 100 / GRID_SIZE  // 6.25% between grid points
 const MIN_GRID_POS = 0
 const MAX_GRID_POS = GRID_SIZE - 1
 
