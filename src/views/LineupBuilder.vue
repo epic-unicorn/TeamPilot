@@ -658,8 +658,7 @@ function openSaveDialog() {
 }
 
 function confirmSave() {
-  // Always show the save lineup dialog first
-  showSave.value = true
+  doSave()
 }
 
 function doSaveWithTeam() {
