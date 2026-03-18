@@ -161,12 +161,12 @@ function onFieldDrop(event) {
   const x    = ((event.clientX - rect.left) / rect.width)  * 100
   const rawY = ((event.clientY - rect.top)  / rect.height) * 100
   
-  // Snap search: check if drop is near any empty slot (within 8% tolerance)
+  // Snap search: check if drop is near any empty slot (within 12% tolerance)
   const targetSlot = props.slots.find(s => {
     if (s.playerId) return false
     const dx = Math.abs(s.x - x)
     const dy = Math.abs(toDisplayY(s.y) - rawY)
-    return dx < 8 && dy < 8
+    return dx < 12 && dy < 12
   })
   
   const y = toStorageY(rawY)
@@ -234,12 +234,12 @@ function onTouchEnd(event) {
   const x    = ((touch.clientX - rect.left) / rect.width)  * 100
   const rawY = ((touch.clientY - rect.top)  / rect.height) * 100
 
-  // Snap search: compare visual drop position against display coords of each slot
+  // Snap search: compare visual drop position against display coords of each slot (within 12% tolerance)
   const target = props.slots.find(s => {
     if (s.playerId) return false
     const dx = Math.abs(s.x - x)
     const dy = Math.abs(toDisplayY(s.y) - rawY)
-    return dx < 8 && dy < 8
+    return dx < 12 && dy < 12
   })
 
   emit('slot-drop', {
