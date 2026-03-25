@@ -42,13 +42,14 @@ function isActive(item) {
   bottom: 0;
   left: 0;
   right: 0;
-  height: var(--nav-height);
+  height: calc(var(--nav-height) + env(safe-area-inset-bottom));
   background: var(--md-surface);
   border-top: 1px solid var(--md-outline-variant);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-around;
   z-index: 100;
+  padding-top: 0;
   padding-bottom: env(safe-area-inset-bottom);
 }
 .nav-item {
