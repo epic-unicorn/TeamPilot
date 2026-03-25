@@ -3,7 +3,6 @@ import Dashboard from '@/views/Dashboard.vue'
 import Players from '@/views/Players.vue'
 import LineupBuilder from '@/views/LineupBuilder.vue'
 import Lineups from '@/views/Lineups.vue'
-import ShareView from '@/views/ShareView.vue'
 
 const routes = [
   { path: '/', name: 'dashboard', component: Dashboard },
@@ -11,7 +10,6 @@ const routes = [
   { path: '/lineup/new', name: 'lineup-new', component: LineupBuilder },
   { path: '/lineup/:id', name: 'lineup-edit', component: LineupBuilder, props: true },
   { path: '/lineups', name: 'lineups', component: Lineups },
-  { path: '/share', name: 'share', component: ShareView },
 ]
 
 export default createRouter({

@@ -61,24 +61,10 @@
           <span class="material-symbols-rounded" style="font-size:18px">save</span>
           <span class="btn-lbl">Opslaan</span>
         </button>
-        <!-- Share submenu (mobile only — desktop has share panel in bench column) -->
-        <div class="more-menu" ref="moreRef">
-          <button class="btn btn-outlined" @click="showMore = !showMore" :class="{ active: showMore }" title="Delen">
-            <span class="material-symbols-rounded" style="font-size:18px">share</span>
-          </button>
-          <Transition name="fade">
-            <div v-if="showMore" class="more-dropdown">
-              <button class="more-item" @click="shareImage(); showMore=false" :disabled="sharing">
-                <span class="material-symbols-rounded">image</span>
-                {{ sharing ? 'Bezig…' : 'Afbeelding' }}
-              </button>
-              <button class="more-item" @click="shareLink(); showMore=false">
-                <span class="material-symbols-rounded">share</span>
-                Link
-              </button>
-            </div>
-          </Transition>
-        </div>
+        <!-- Share button: mobile only -->
+        <button class="btn btn-outlined" @click="shareImage" :disabled="sharing" title="Delen">
+          <span class="material-symbols-rounded" style="font-size:18px">share</span>
+        </button>
       </div>
     </div>
 
@@ -138,10 +124,6 @@
             <button class="btn btn-tonal w-full" @click="shareImage" :disabled="sharing">
               <span class="material-symbols-rounded" style="font-size:18px">image</span>
               {{ sharing ? 'Bezig…' : 'Afbeelding' }}
-            </button>
-            <button class="btn btn-tonal w-full" @click="shareLink">
-              <span class="material-symbols-rounded" style="font-size:18px">share</span>
-              Link
             </button>
           </div>
         </div>
@@ -205,22 +187,6 @@
       </div>
     </Transition>
 
-    <!-- Save team dialog (for temporary teams from shared links) -->
-    <Transition name="fade">
-      <div v-if="showSaveTeam" class="dialog-backdrop" @click.self="showSaveTeam=false">
-        <div class="dialog">
-          <p class="dialog-title">Team opslaan?</p>
-          <p class="md-body-md" style="margin-bottom:var(--sp-4)">
-            Dit team werd geïmporteerd uit een gedeelde link. Wil je het permanent in je account opslaan?
-          </p>
-          <div class="dialog-actions">
-            <button class="btn btn-text" @click="doSaveWithoutTeam">Alleen opstelling</button>
-            <button class="btn btn-filled" @click="doSaveWithTeam">Team opslaan</button>
-          </div>
-        </div>
-      </div>
-    </Transition>
-
     <!-- Share image preview dialog -->
     <Transition name="fade">
       <div v-if="sharePreviewUrl" class="dialog-backdrop" @click.self="sharePreviewUrl=null">
@@ -277,16 +243,11 @@ function snapToGrid(value) {
 // ── Lineup switcher ────────────────────────────────────────
 const showSwitcher = ref(false)
 const switcherRef  = ref(null)
-const showMore     = ref(false)
-const moreRef      = ref(null)
 const showBench    = ref(false)
 
 function closeOnOutsideClick(e) {
   if (switcherRef.value && !switcherRef.value.contains(e.target)) {
     showSwitcher.value = false
-  }
-  if (moreRef.value && !moreRef.value.contains(e.target)) {
-    showMore.value = false
   }
 }
 onMounted(() => document.addEventListener('mousedown', closeOnOutsideClick))
@@ -344,65 +305,32 @@ const benchPlayers = computed(() => {
 })
 
 // ── Init / load lineup ─────────────────────────────────────
+function loadFreshFormation() {
+  lineupId.value = null
+  lineupName.value = ''
+  if (availableFormations.value.length) {
+    applyFormation(availableFormations.value[0])
+  } else {
+    buildFreeSlots((ageGroupConfig.value?.players) ?? 11)
+  }
+}
+
+function loadLineupById(existing) {
+  lineupId.value   = existing.id
+  lineupName.value = existing.name
+  selectedFormationId.value = existing.formationId ?? null
+  fieldSlots.value = existing.slots.map(s => ({ ...s }))
+  flipped.value    = existing.flipped ?? true
+  store.setActiveLineup(existing.id)
+}
+
 onMounted(() => {
-  // Priority 1: Check for shared lineup (from share link, for both new and existing teams)
-  const teamId = store.activeTeamId
-  const sharedLineupData = localStorage.getItem(`shared-lineup-${teamId}`)
-  if (sharedLineupData) {
-    try {
-      const data = JSON.parse(sharedLineupData)
-      lineupName.value = data.name || 'Geïmporteerde opstelling'
-      const slots = data.slots ?? []
-      if (slots.length > 0) {
-        fieldSlots.value = slots.map(s => ({
-          slotId:   s.id,
-          position: s.p,
-          x:        s.x,
-          y:        s.y,
-          playerId: null, // Players from shared link not available
-        }))
-        flipped.value = data.flipped ?? true
-      }
-      localStorage.removeItem(`shared-lineup-${teamId}`) // Clean up after loading
-      return
-    } catch (e) { console.error('Failed to load shared lineup:', e) }
-  }
-
-  // Priority 2: Check for temporary team from shared link (legacy)
-  const tempTeamId = store.tempTeamId
-  if (tempTeamId && store.activeTeamId === tempTeamId) {
-    const tempLineupData = localStorage.getItem(`temp-lineup-${tempTeamId}`)
-    if (tempLineupData) {
-      try {
-        const data = JSON.parse(tempLineupData)
-        lineupName.value = data.name || 'Geïmporteerde opstelling'
-        const slots = data.slots ?? []
-        if (slots.length > 0) {
-          fieldSlots.value = slots.map(s => ({
-            slotId:   s.id,
-            position: s.p,
-            x:        s.x,
-            y:        s.y,
-            playerId: null,
-          }))
-          flipped.value = data.flipped ?? true
-          return
-        }
-      } catch (e) { console.error('Failed to load temp lineup:', e) }
-    }
-  }
-
-  // Priority 3: Check URL for lineup ID
+  // Priority 1: Check URL for lineup ID
   const id = props.id ?? route.params.id
   if (id) {
     const existing = store.getLineup(id)
     if (existing) {
-      lineupId.value   = existing.id
-      lineupName.value = existing.name
-      selectedFormationId.value = existing.formationId ?? null
-      fieldSlots.value = existing.slots.map(s => ({ ...s }))
-      flipped.value    = existing.flipped ?? true
-      store.setActiveLineup(existing.id)
+      loadLineupById(existing)
       return
     }
   }
@@ -416,11 +344,32 @@ onMounted(() => {
     }
   }
   // Fresh lineup
-  if (availableFormations.value.length) {
-    applyFormation(availableFormations.value[0])
-  } else {
-    buildFreeSlots((ageGroupConfig.value?.players) ?? 11)
+  loadFreshFormation()
+})
+
+// ── React to team switch while builder is open ─────────────
+watch(() => store.activeTeamId, () => {
+  // Try to load the last active lineup for the new team
+  const lastId = store.activeLineupId
+  if (lastId) {
+    const last = store.getLineup(lastId)
+    if (last && last.teamId === store.activeTeamId) {
+      loadLineupById(last)
+      router.replace(`/lineup/${lastId}`)
+      return
+    }
   }
+  // Fall back to the most recent lineup of the new team
+  const teamLineupsSorted = [...store.teamLineups].sort((a, b) => b.updatedAt - a.updatedAt)
+  if (teamLineupsSorted.length) {
+    const first = teamLineupsSorted[0]
+    loadLineupById(first)
+    router.replace(`/lineup/${first.id}`)
+    return
+  }
+  // No lineups for this team — start fresh
+  loadFreshFormation()
+  router.replace('/lineup/new')
 })
 
 // ── Formation logic ────────────────────────────────────────
@@ -678,7 +627,6 @@ function autoAssign() {
 
 // ── Save ───────────────────────────────────────────────────
 const showSave = ref(false)
-const showSaveTeam = ref(false)
 
 function openSaveDialog() {
   if (!lineupName.value && activeTeam.value) {
@@ -691,22 +639,7 @@ function confirmSave() {
   doSave()
 }
 
-function doSaveWithTeam() {
-  store.saveTempTeamPermanently(store.activeTeamId)
-  doSave(true)
-  showSaveTeam.value = false
-}
-
-function doSaveWithoutTeam() {
-  // Just save the lineup, then remove the temp team
-  doSave(true)
-  setTimeout(() => {
-    store.clearTempTeam()
-  }, 100)
-  showSaveTeam.value = false
-}
-
-function doSave(skipTeamDialog = false) {
+function doSave() {
   const saved = store.saveLineup({
     id:          lineupId.value ?? undefined,
     name:        lineupName.value,
@@ -720,13 +653,7 @@ function doSave(skipTeamDialog = false) {
     router.replace(`/lineup/${saved.id}`)
   }
   showSave.value = false
-  
-  // If the team is temporary (from a shared link), offer to save it
-  if (!skipTeamDialog && store.isTeamTemporary(store.activeTeamId)) {
-    showSaveTeam.value = true
-  } else {
-    showSnackbar('Opstelling opgeslagen ✓')
-  }
+  showSnackbar('Opstelling opgeslagen ✓')
 }
 
 // ── Share via image ────────────────────────────────────────
@@ -957,43 +884,6 @@ async function shareViaWhatsApp() {
   }
 }
 
-// ── Share via link ─────────────────────────────────────────
-function shareLink() {
-  // Encode compact data format for shorter URLs
-  const data = {
-    n: lineupName.value,
-    t: activeTeam.value?.name,
-    a: activeTeam.value?.ageGroup,
-    c: activeTeam.value?.color,
-    sh: activeTeam.value?.shirt ? [
-      activeTeam.value.shirt.style,
-      activeTeam.value.shirt.primary,
-      activeTeam.value.shirt.secondary,
-    ] : null,
-    f: selectedFormationId.value,
-    fl: flipped.value,
-    s: fieldSlots.value.map(s => [
-      s.slotId,
-      s.position,
-      Math.round(s.x),
-      Math.round(s.y),
-      s.playerId ? (playersMap.value[s.playerId]?.name ?? null) : null,
-      s.playerId ? (playersMap.value[s.playerId]?.number ?? null) : null,
-    ]),
-  }
-  const encoded = btoa(encodeURIComponent(JSON.stringify(data)))
-  const url = `${window.location.origin}${window.location.pathname}#/share?d=${encoded}`
-
-  if (navigator.share) {
-    navigator.share({ title: lineupName.value || 'Opstelling', url }).catch(() => {})
-  } else {
-    navigator.clipboard.writeText(url).then(() => {
-      showSnackbar('Link gekopieerd naar klembord!')
-    }).catch(() => {
-      showSnackbar('Kon link niet kopiëren')
-    })
-  }
-}
 </script>
 
 <style scoped>
