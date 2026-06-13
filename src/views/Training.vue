@@ -120,9 +120,10 @@
           <div>
             <p class="md-title-sm">Trainingsoverzicht</p>
             <p class="md-label-sm saved-hint">
-          Automatisch opgeslagen per team
-          <span class="reorder-hint"> · houd ingedrukt om te verplaatsen</span>
-        </p>
+              Automatisch opgeslagen per team
+              <span class="reorder-hint reorder-hint--touch"> · houd ingedrukt om te verplaatsen</span>
+              <span class="reorder-hint reorder-hint--mouse"> · sleep via het handvat links</span>
+            </p>
           </div>
           <div class="section-head-actions">
             <p class="md-label-md" :class="{ 'time-warn': totalMin !== durationMin }">
@@ -134,26 +135,26 @@
             </button>
           </div>
         </div>
-        <div
-          class="session-list"
-          @dragover.prevent
-        >
+        <div class="session-list">
           <div
             v-for="(block, i) in sessionBlocks"
             :key="block.uid"
             class="session-row"
             :class="{ 'drag-over': dragOverIndex === i, 'is-dragging': dragIndex === i }"
             :data-session-index="i"
-            draggable="true"
-            @dragstart="onRowDragStart(i, $event)"
-            @dragend="onDragEnd"
             @touchstart="onRowTouchStart(i, $event)"
             @touchmove="onRowTouchMove"
             @touchend="onRowTouchEnd"
             @touchcancel="onRowTouchCancel"
-            @dragover.prevent="onDragOver(i)"
-            @drop.prevent="onDrop(i)"
           >
+            <div
+              class="drag-handle"
+              aria-label="Sleep om te verplaatsen"
+              title="Sleep om te verplaatsen"
+              @pointerdown="onHandlePointerDown(i, $event)"
+            >
+              <span class="material-symbols-rounded" aria-hidden="true">drag_indicator</span>
+            </div>
             <div
               class="session-info session-info-btn"
               role="button"
@@ -215,7 +216,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useTeamStore } from '@/stores/teamStore'
 import { TRAINING_TYPES, EXERCISE_CATEGORIES, getExerciseById } from '@/data/exercises'
 import { generateTraining, getCycleTheme, getCycleThemeLabel, browseExercises, analyzePlayerBalance } from '@/utils/trainingEngine'
@@ -243,13 +244,115 @@ const detailBlock = ref(null)
 const dragIndex = ref(null)
 const dragOverIndex = ref(null)
 let nextBlockUid = 1
-let touchDragIndex = null
-let longPressTimer = null
 let suppressDetailClick = false
-const LONG_PRESS_MS = 400
+
+const LONG_PRESS_MS = 450
+const MOVE_CANCEL_PX = 12
+
+/** @type {{ index: number|null, startX: number, startY: number, timer: ReturnType<typeof setTimeout>|null, active: boolean }} */
+let touchReorder = {
+  index: null,
+  startX: 0,
+  startY: 0,
+  timer: null,
+  active: false,
+}
+
+/** @type {{ index: number, pointerId: number } | null} */
+let pointerDrag = null
 
 function isDragExcludedTarget(el) {
-  return el?.closest('input, .session-duration, button[aria-label="Verwijderen"], .custom-ex-badge')
+  return el?.closest('input, .session-duration, button[aria-label="Verwijderen"], .drag-handle')
+}
+
+function clearDragVisuals() {
+  dragIndex.value = null
+  dragOverIndex.value = null
+}
+
+function resetPointerDrag() {
+  pointerDrag = null
+  document.removeEventListener('pointermove', onPointerDragMove)
+  document.removeEventListener('pointerup', onPointerDragEnd)
+  document.removeEventListener('pointercancel', onPointerDragEnd)
+  document.body.style.removeProperty('cursor')
+  document.body.style.removeProperty('user-select')
+  clearDragVisuals()
+}
+
+function onHandlePointerDown(index, e) {
+  if (e.pointerType === 'touch') return
+  if (e.button !== 0) return
+
+  e.preventDefault()
+  e.stopPropagation()
+
+  pointerDrag = { index, pointerId: e.pointerId }
+  dragIndex.value = index
+  dragOverIndex.value = index
+  document.body.style.cursor = 'grabbing'
+  document.body.style.userSelect = 'none'
+
+  document.addEventListener('pointermove', onPointerDragMove)
+  document.addEventListener('pointerup', onPointerDragEnd)
+  document.addEventListener('pointercancel', onPointerDragEnd)
+}
+
+function onPointerDragMove(e) {
+  if (!pointerDrag || e.pointerId !== pointerDrag.pointerId) return
+  e.preventDefault()
+  const over = findSessionRowIndexAtY(e.clientY)
+  if (over !== null) dragOverIndex.value = over
+}
+
+function onPointerDragEnd(e) {
+  if (!pointerDrag || e.pointerId !== pointerDrag.pointerId) return
+  reorderBlocks(pointerDrag.index, dragOverIndex.value ?? pointerDrag.index)
+  resetPointerDrag()
+}
+
+function clearTouchReorderTimer() {
+  if (touchReorder.timer !== null) {
+    window.clearTimeout(touchReorder.timer)
+    touchReorder.timer = null
+  }
+}
+
+function resetTouchReorder() {
+  clearTouchReorderTimer()
+  touchReorder = { index: null, startX: 0, startY: 0, timer: null, active: false }
+  clearDragVisuals()
+  document.removeEventListener('touchmove', onDocumentTouchMove)
+}
+
+function onDocumentTouchMove(e) {
+  if (!touchReorder.active) return
+  e.preventDefault()
+}
+
+function findSessionRowIndexAtY(clientY) {
+  const rows = document.querySelectorAll('.session-list [data-session-index]')
+  if (!rows.length) return null
+
+  for (const row of rows) {
+    const rect = row.getBoundingClientRect()
+    if (clientY >= rect.top && clientY <= rect.bottom) {
+      return Number(row.dataset.sessionIndex)
+    }
+  }
+
+  let nearest = null
+  let nearestDist = Infinity
+  for (const row of rows) {
+    const rect = row.getBoundingClientRect()
+    const centerY = rect.top + rect.height / 2
+    const dist = Math.abs(clientY - centerY)
+    if (dist < nearestDist) {
+      nearestDist = dist
+      nearest = Number(row.dataset.sessionIndex)
+    }
+  }
+  return Number.isNaN(nearest) ? null : nearest
 }
 
 watch(roster, (players) => {
@@ -267,6 +370,11 @@ watch(
 watch(() => store.activeTeamId, () => loadDraft())
 
 onMounted(() => loadDraft())
+
+onUnmounted(() => {
+  resetTouchReorder()
+  resetPointerDrag()
+})
 
 function loadDraft() {
   const draft = trainingState.value.draftSession
@@ -310,35 +418,6 @@ function makeBlock(exercise, durationMin) {
   return { uid: nextBlockUid++, exercise, durationMin }
 }
 
-function onDragStart(index, e) {
-  dragIndex.value = index
-  e.dataTransfer.effectAllowed = 'move'
-  e.dataTransfer.setData('text/plain', String(index))
-}
-
-function onRowDragStart(index, e) {
-  if (isDragExcludedTarget(e.target)) {
-    e.preventDefault()
-    return
-  }
-  onDragStart(index, e)
-}
-
-function onDragOver(index) {
-  if (dragIndex.value === null) return
-  dragOverIndex.value = index
-}
-
-function onDrop(index) {
-  reorderBlocks(dragIndex.value, index)
-  onDragEnd()
-}
-
-function onDragEnd() {
-  dragIndex.value = null
-  dragOverIndex.value = null
-}
-
 function reorderBlocks(from, to) {
   if (from == null || to == null || from === to) return
   const arr = [...sessionBlocks.value]
@@ -348,58 +427,68 @@ function reorderBlocks(from, to) {
 }
 
 function onTouchMove(e) {
-  if (touchDragIndex === null) return
+  if (!touchReorder.active || touchReorder.index === null) return
   e.preventDefault()
   const touch = e.touches[0]
-  const el = document.elementFromPoint(touch.clientX, touch.clientY)
-  const row = el?.closest('[data-session-index]')
-  if (!row) return
-  const overIndex = Number(row.dataset.sessionIndex)
-  if (!Number.isNaN(overIndex)) dragOverIndex.value = overIndex
+  const overIndex = findSessionRowIndexAtY(touch.clientY)
+  if (overIndex !== null) dragOverIndex.value = overIndex
 }
 
 function onRowTouchStart(index, e) {
   if (isDragExcludedTarget(e.target)) return
-  longPressTimer = window.setTimeout(() => {
-    touchDragIndex = index
+
+  resetTouchReorder()
+
+  const touch = e.touches[0]
+  touchReorder.index = index
+  touchReorder.startX = touch.clientX
+  touchReorder.startY = touch.clientY
+
+  touchReorder.timer = window.setTimeout(() => {
+    touchReorder.timer = null
+    touchReorder.active = true
     dragIndex.value = index
-    longPressTimer = null
+    dragOverIndex.value = index
+    suppressDetailClick = true
+    document.addEventListener('touchmove', onDocumentTouchMove, { passive: false })
+    navigator.vibrate?.(12)
   }, LONG_PRESS_MS)
 }
 
 function onRowTouchMove(e) {
-  if (longPressTimer !== null) {
-    window.clearTimeout(longPressTimer)
-    longPressTimer = null
+  if (touchReorder.index === null) return
+
+  const touch = e.touches[0]
+  const moved = Math.hypot(
+    touch.clientX - touchReorder.startX,
+    touch.clientY - touchReorder.startY,
+  )
+
+  if (!touchReorder.active) {
+    if (moved > MOVE_CANCEL_PX) clearTouchReorderTimer()
+    return
   }
+
   onTouchMove(e)
 }
 
 function onRowTouchEnd() {
-  if (longPressTimer !== null) {
-    window.clearTimeout(longPressTimer)
-    longPressTimer = null
-  }
-  if (touchDragIndex !== null) {
+  if (touchReorder.active && touchReorder.index !== null) {
+    const from = touchReorder.index
+    const to = dragOverIndex.value ?? from
+    reorderBlocks(from, to)
     suppressDetailClick = true
-    if (dragOverIndex.value !== null) {
-      reorderBlocks(touchDragIndex, dragOverIndex.value)
-      persistDraft()
-    }
-    touchDragIndex = null
-    onDragEnd()
-    window.setTimeout(() => { suppressDetailClick = false }, 200)
-    return
+    window.setTimeout(() => { suppressDetailClick = false }, 300)
+  } else {
+    clearTouchReorderTimer()
   }
+
+  resetTouchReorder()
 }
 
 function onRowTouchCancel() {
-  if (longPressTimer !== null) {
-    window.clearTimeout(longPressTimer)
-    longPressTimer = null
-  }
-  touchDragIndex = null
-  onDragEnd()
+  suppressDetailClick = false
+  resetTouchReorder()
 }
 
 function setBlockDuration(index, minutes) {
@@ -569,12 +658,30 @@ function giveFeedback(exerciseId, type) {
   padding: var(--sp-3);
   border-radius: var(--md-shape-md);
   transition: background var(--md-duration-short), opacity var(--md-duration-short);
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.drag-handle {
+  display: none;
+  flex-shrink: 0;
   cursor: grab;
-  touch-action: pan-y;
+  color: var(--md-on-surface-variant);
+  touch-action: none;
+  padding: var(--sp-1);
+  border-radius: var(--md-shape-sm);
+}
+.drag-handle .material-symbols-rounded { font-size: 22px; pointer-events: none; }
+.drag-handle:active { cursor: grabbing; }
+@media (min-width: 900px) {
+  .drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 .session-row.is-dragging {
-  opacity: 0.45;
-  cursor: grabbing;
+  opacity: 0.55;
   touch-action: none;
 }
 .session-row:hover {
@@ -595,9 +702,13 @@ function giveFeedback(exerciseId, type) {
   border-radius: var(--md-shape-sm);
 }
 .session-info-btn:hover { background: color-mix(in srgb, var(--md-on-surface) 4%, transparent); }
+.session-duration { cursor: default; }
+.session-row .btn-icon { cursor: pointer; }
 .reorder-hint { opacity: 0.85; }
+.reorder-hint--mouse { display: none; }
 @media (min-width: 900px) {
-  .reorder-hint { display: none; }
+  .reorder-hint--touch { display: none; }
+  .reorder-hint--mouse { display: inline; }
 }
 .session-duration {
   display: flex;
@@ -616,6 +727,9 @@ function giveFeedback(exerciseId, type) {
   text-align: center;
   background: var(--md-surface);
   color: var(--md-on-surface);
+  touch-action: manipulation;
+  -webkit-user-select: text;
+  user-select: text;
   -moz-appearance: textfield;
 }
 .duration-input::-webkit-outer-spin-button,
