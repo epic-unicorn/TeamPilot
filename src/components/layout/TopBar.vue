@@ -82,6 +82,14 @@
               </select>
             </div>
 
+            <!-- KNVB class -->
+            <div class="cf-field">
+              <label class="cf-label">Competitieklasse</label>
+              <select class="cf-input cf-select" v-model="newTeam.knvbClass">
+                <option v-for="c in KNVB_CLASSES" :key="c.id" :value="c.id">{{ c.label }}</option>
+              </select>
+            </div>
+
             <!-- Shirt style -->
             <div class="cf-field cf-field--col">
               <label class="cf-label">Shirtkleur</label>
@@ -175,6 +183,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useTeamStore } from '@/stores/teamStore'
 import { AGE_GROUPS } from '@/data/formations'
+import { DEFAULT_KNVB_CLASS, KNVB_CLASSES } from '@/data/knvbClasses'
 import ShirtAvatar from '@/components/ui/ShirtAvatar.vue'
 
 const store = useTeamStore()
@@ -212,6 +221,7 @@ const createOpen = ref(false)
 const newTeam = reactive({
   name: '',
   ageGroup: 'JO11',
+  knvbClass: DEFAULT_KNVB_CLASS,
   shirtStyle: 'solid',
   primary: '#1a6b3c',
   secondary: '#ffffff',
@@ -219,7 +229,7 @@ const newTeam = reactive({
 
 function openCreate() {
   menuOpen.value = false
-  Object.assign(newTeam, { name: '', ageGroup: 'JO11', shirtStyle: 'solid', primary: '#1a6b3c', secondary: '#ffffff' })
+  Object.assign(newTeam, { name: '', ageGroup: 'JO11', knvbClass: DEFAULT_KNVB_CLASS, shirtStyle: 'solid', primary: '#1a6b3c', secondary: '#ffffff' })
   createOpen.value = true
 }
 
@@ -230,7 +240,7 @@ function closeCreate() {
 function confirmCreate() {
   if (!newTeam.name.trim()) return
   store.addRecentColors(newTeam.primary, newTeam.secondary)
-  const team = store.addTeam(newTeam.name.trim(), newTeam.ageGroup, newTeam.primary)
+  const team = store.addTeam(newTeam.name.trim(), newTeam.ageGroup, newTeam.primary, newTeam.knvbClass)
   store.updateTeam(team.id, {
     shirt: { style: newTeam.shirtStyle, primary: newTeam.primary, secondary: newTeam.secondary },
   })

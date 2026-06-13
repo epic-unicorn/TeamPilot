@@ -56,7 +56,7 @@ const navItems = [
   { to: '/',           icon: 'home',          label: 'Home'       },
   { to: '/players',    icon: 'group',         label: 'Spelers'    },
   { to: '/lineup/new', icon: 'sports_soccer', label: 'Opstelling' },
-  { to: '/lineups',    icon: 'folder_open',   label: 'Opgeslagen' },
+  { to: '/training',  icon: 'stadium',       label: 'Training' },
 ]
 
 function isActive(item) {

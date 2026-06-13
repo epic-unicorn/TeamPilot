@@ -21,6 +21,13 @@
           </select>
         </div>
         <div class="divider"></div>
+        <div class="settings-row">
+          <span class="md-body-md">Competitieklasse</span>
+          <select class="settings-input field-select" :value="activeTeam?.knvbClass" @change="e => updateTeam('knvbClass', e.target.value)">
+            <option v-for="c in KNVB_CLASSES" :key="c.id" :value="c.id">{{ c.label }}</option>
+          </select>
+        </div>
+        <div class="divider"></div>
         <!-- Shirt style selector -->
         <div class="settings-row settings-row--col">
           <span class="md-body-md">Shirtkleur</span>
@@ -113,7 +120,6 @@
     <div v-if="recentLineups.length" class="recent-section">
       <div class="section-row">
         <p class="section-title md-title-sm">Recente opstellingen</p>
-        <RouterLink to="/lineups" class="btn btn-text" style="height:32px;font-size:13px">Alle bekijken</RouterLink>
       </div>
       <div class="recent-list">
         <RouterLink
@@ -139,6 +145,7 @@
 import { computed } from 'vue'
 import { useTeamStore } from '@/stores/teamStore'
 import { AGE_GROUPS } from '@/data/formations'
+import { KNVB_CLASSES } from '@/data/knvbClasses'
 import ShirtAvatar from '@/components/ui/ShirtAvatar.vue'
 import { showSnackbar } from '@/composables/useSnackbar'
 

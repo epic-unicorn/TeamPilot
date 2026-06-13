@@ -2,7 +2,8 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import Dashboard from '@/views/Dashboard.vue'
 import Players from '@/views/Players.vue'
 import LineupBuilder from '@/views/LineupBuilder.vue'
-import Lineups from '@/views/Lineups.vue'
+import Training from '@/views/Training.vue'
+import TrainingView from '@/views/TrainingView.vue'
 import LineupView from '@/views/LineupView.vue'
 
 const routes = [
@@ -10,7 +11,8 @@ const routes = [
   { path: '/players', name: 'players', component: Players },
   { path: '/lineup/new', name: 'lineup-new', component: LineupBuilder },
   { path: '/lineup/:id', name: 'lineup-edit', component: LineupBuilder, props: true },
-  { path: '/lineups', name: 'lineups', component: Lineups },
+  { path: '/training', name: 'training', component: Training },
+  { path: '/training/view', name: 'training-view', component: TrainingView },
   { path: '/view', name: 'lineup-view', component: LineupView },
 ]
 

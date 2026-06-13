@@ -24,24 +24,32 @@
             </button>
           </div>
           <div class="switcher-content">
-            <button class="switcher-item switcher-new" @click.stop="startNew">
+            <button class="switcher-item switcher-new" @click.stop="requestStartNew">
               <span class="material-symbols-rounded" style="font-size:18px">add</span>
               <span>Nieuwe opstelling</span>
             </button>
             <div v-if="teamLineups.length" class="switcher-divider"></div>
-            <button
+            <div
               v-for="lu in teamLineups"
               :key="lu.id"
-              class="switcher-item"
+              class="switcher-row"
               :class="{ 'switcher-active': lu.id === lineupId }"
-              @click.stop="switchToLineup(lu)"
             >
-              <span class="material-symbols-rounded" style="font-size:18px">{{ lu.id === lineupId ? 'radio_button_checked' : 'radio_button_unchecked' }}</span>
-              <div class="switcher-item-info">
-                <span class="switcher-item-name">{{ lu.name }}</span>
-                <span class="switcher-item-meta">{{ lu.slots.filter(s=>s.playerId).length }} spelers · {{ lu.formationId || 'Vrij' }}</span>
-              </div>
-            </button>
+              <button class="switcher-item" @click.stop="requestSwitchToLineup(lu)">
+                <span class="material-symbols-rounded" style="font-size:18px">{{ lu.id === lineupId ? 'radio_button_checked' : 'radio_button_unchecked' }}</span>
+                <div class="switcher-item-info">
+                  <span class="switcher-item-name">{{ lu.name }}</span>
+                  <span class="switcher-item-meta">{{ lu.slots.filter(s=>s.playerId).length }} spelers · {{ lu.formationId || 'Vrij' }}</span>
+                </div>
+              </button>
+              <button
+                class="btn-icon switcher-delete"
+                @click.stop="requestDeleteLineup(lu)"
+                aria-label="Opstelling verwijderen"
+              >
+                <span class="material-symbols-rounded">delete</span>
+              </button>
+            </div>
             <div v-if="!teamLineups.length" class="switcher-empty">Geen opgeslagen opstellingen</div>
           </div>
         </div>
@@ -52,10 +60,6 @@
         <button class="btn btn-outlined" @click="resetAll" title="Alle posities leegmaken">
           <span class="material-symbols-rounded" style="font-size:18px">refresh</span>
           <span class="btn-lbl">Reset</span>
-        </button>
-        <button class="btn btn-tonal" @click="autoAssign" :disabled="!benchPlayers.length" title="Spelers automatisch invullen">
-          <span class="material-symbols-rounded" style="font-size:18px">auto_awesome</span>
-          <span class="btn-lbl">Auto</span>
         </button>
         <button class="btn btn-filled" @click="openSaveDialog">
           <span class="material-symbols-rounded" style="font-size:18px">save</span>
@@ -179,6 +183,37 @@
 
 
 
+    <!-- Unsaved changes dialog -->
+    <Transition name="fade">
+      <div v-if="showUnsaved" class="dialog-backdrop" @click.self="cancelPending">
+        <div class="dialog">
+          <p class="dialog-title">Niet-opgeslagen wijzigingen</p>
+          <p class="dialog-body">Je hebt wijzigingen die nog niet zijn opgeslagen. Wat wil je doen?</p>
+          <div class="dialog-actions">
+            <button class="btn btn-text" @click="cancelPending">Annuleren</button>
+            <button class="btn btn-text" @click="confirmDiscard">Verwerpen</button>
+            <button class="btn btn-filled" @click="confirmSaveAndContinue">Opslaan</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Delete lineup dialog -->
+    <Transition name="fade">
+      <div v-if="deleteTarget" class="dialog-backdrop" @click.self="deleteTarget=null">
+        <div class="dialog">
+          <p class="dialog-title">Opstelling verwijderen?</p>
+          <p class="dialog-body">
+            <strong>{{ deleteTarget.name }}</strong> wordt permanent verwijderd.
+          </p>
+          <div class="dialog-actions">
+            <button class="btn btn-text" @click="deleteTarget=null">Annuleren</button>
+            <button class="btn btn-filled" style="background:var(--md-error)" @click="doDeleteLineup">Verwijderen</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <!-- Save Dialog -->
     <Transition name="fade">
       <div v-if="showSave" class="dialog-backdrop" @click.self="showSave=false">
@@ -299,7 +334,88 @@ onUnmounted(() => document.removeEventListener('mousedown', closeOnOutsideClick)
 
 function switchToLineup(lu) {
   showSwitcher.value = false
-  router.push(`/lineup/${lu.id}`)
+  loadLineupById(lu)
+  if (route.params.id !== lu.id) {
+    router.push(`/lineup/${lu.id}`)
+  }
+}
+
+function requestSwitchToLineup(lu) {
+  if (lu.id === lineupId.value) {
+    showSwitcher.value = false
+    return
+  }
+  if (isDirty.value) {
+    pendingAction.value = { type: 'switch', lineup: lu }
+    showUnsaved.value = true
+    return
+  }
+  switchToLineup(lu)
+}
+
+function requestStartNew() {
+  if (isDirty.value) {
+    pendingAction.value = { type: 'new' }
+    showUnsaved.value = true
+    return
+  }
+  startNew()
+}
+
+const showUnsaved = ref(false)
+const pendingAction = ref(null)
+
+function cancelPending() {
+  showUnsaved.value = false
+  pendingAction.value = null
+}
+
+function confirmDiscard() {
+  const action = pendingAction.value
+  showUnsaved.value = false
+  pendingAction.value = null
+  if (action?.type === 'switch') switchToLineup(action.lineup)
+  else if (action?.type === 'new') startNew()
+}
+
+function confirmSaveAndContinue() {
+  if (!lineupName.value.trim() && activeTeam.value) {
+    lineupName.value = `${activeTeam.value.name} – ${new Date().toLocaleDateString('nl-NL')}`
+  }
+  if (!lineupName.value.trim()) {
+    showUnsaved.value = false
+    openSaveDialog()
+    return
+  }
+  const action = pendingAction.value
+  doSave()
+  showUnsaved.value = false
+  pendingAction.value = null
+  if (action?.type === 'switch') switchToLineup(action.lineup)
+  else if (action?.type === 'new') startNew()
+}
+
+const deleteTarget = ref(null)
+
+function requestDeleteLineup(lu) {
+  deleteTarget.value = lu
+}
+
+function doDeleteLineup() {
+  const lu = deleteTarget.value
+  if (!lu) return
+  const wasActive = lu.id === lineupId.value
+  store.deleteLineup(lu.id)
+  deleteTarget.value = null
+  showSwitcher.value = false
+  showSnackbar('Opstelling verwijderd')
+  if (!wasActive) return
+  const remaining = [...store.teamLineups].sort((a, b) => b.updatedAt - a.updatedAt)
+  if (remaining.length) {
+    switchToLineup(remaining[0])
+  } else {
+    startNew()
+  }
 }
 
 function startNew() {
@@ -315,7 +431,33 @@ function startNew() {
     buildFreeSlots(ageGroupConfig.value?.players ?? 11)
   }
   router.replace({ name: 'lineup-new', query: { new: '1' } })
+  refreshSnapshot()
 }
+
+// ── Dirty state ────────────────────────────────────────────
+const loadedSnapshot = ref(null)
+
+function serializeState() {
+  return JSON.stringify({
+    lineupId: lineupId.value,
+    lineupName: lineupName.value,
+    selectedFormationId: selectedFormationId.value,
+    flipped: flipped.value,
+    fieldSlots: fieldSlots.value.map(s => ({
+      slotId: s.slotId,
+      position: s.position,
+      x: s.x,
+      y: s.y,
+      playerId: s.playerId ?? null,
+    })),
+  })
+}
+
+function refreshSnapshot() {
+  loadedSnapshot.value = serializeState()
+}
+
+const isDirty = computed(() => serializeState() !== loadedSnapshot.value)
 
 // ── Team state ─────────────────────────────────────────────
 const activeTeam      = computed(() => store.activeTeam)
@@ -357,6 +499,7 @@ function loadFreshFormation() {
   } else {
     buildFreeSlots((ageGroupConfig.value?.players) ?? 11)
   }
+  refreshSnapshot()
 }
 
 function loadLineupById(existing) {
@@ -366,6 +509,7 @@ function loadLineupById(existing) {
   fieldSlots.value = existing.slots.map(s => ({ ...s }))
   flipped.value    = existing.flipped ?? true
   store.setActiveLineup(existing.id)
+  refreshSnapshot()
 }
 
 onMounted(() => {
@@ -679,56 +823,6 @@ function resetAll() {
   }
 }
 
-function autoAssign() {
-  // Snap any free-mode slots to the grid before assigning
-  for (const slot of fieldSlots.value) {
-    // Only snap free-mode slots (those without a formation-defined position that's not in formation mode)
-    if (!selectedFormationId.value || slot.slotId.startsWith('free-')) {
-      slot.x = snapToGrid(slot.x)
-      slot.y = snapToGrid(slot.y)
-    }
-  }
-
-  // Get empty slots and available bench players
-  const emptySlots = fieldSlots.value.filter(s => !s.playerId)
-  if (!emptySlots.length || !benchPlayers.value.length) return
-
-  // Shuffle bench players so repeated auto-assign gives variety
-  const pool = [...benchPlayers.value].sort(() => Math.random() - 0.5)
-
-  // Position priority order for matching
-  const priority = ['GK', 'DEF', 'WB', 'MID', 'ATT']
-  const slotsByPos  = new Map(priority.map(p => [p, emptySlots.filter(s => s.position === p)]))
-  const playersByPos = new Map(priority.map(p => [p, pool.filter(pl => pl.position === p)]))
-
-  const assigned = new Set()
-
-  // Pass 1: exact position match
-  for (const pos of priority) {
-    const slots   = slotsByPos.get(pos)
-    const players = playersByPos.get(pos)
-    for (const slot of slots) {
-      if (assigned.has(slot.slotId)) continue
-      const player = players.find(pl => !assigned.has(pl.id))
-      if (player) {
-        slot.playerId = player.id
-        assigned.add(player.id)
-        assigned.add(slot.slotId)
-      }
-    }
-  }
-
-  // Pass 2: fill remaining empty slots with leftover players (any position)
-  const stillEmpty  = emptySlots.filter(s => !assigned.has(s.slotId))
-  const leftover    = pool.filter(pl => !assigned.has(pl.id))
-  for (let i = 0; i < stillEmpty.length && i < leftover.length; i++) {
-    stillEmpty[i].playerId = leftover[i].id
-  }
-
-  const placed = emptySlots.filter(s => s.playerId).length
-  showSnackbar(`${placed} speler${placed !== 1 ? 's' : ''} automatisch ingevuld`)
-}
-
 // ── Save ───────────────────────────────────────────────────
 const showSave = ref(false)
 
@@ -757,6 +851,7 @@ function doSave() {
     router.replace(`/lineup/${saved.id}`)
   }
   showSave.value = false
+  refreshSnapshot()
   showSnackbar('Opstelling opgeslagen ✓')
 }
 
@@ -1107,6 +1202,22 @@ async function shareViaWhatsApp() {
   pointer-events: auto;
 }
 
+.switcher-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--md-shape-md);
+}
+.switcher-row.switcher-active {
+  background: var(--md-primary-container);
+  color: var(--md-on-primary-container);
+}
+.switcher-delete {
+  flex-shrink: 0;
+  color: var(--md-error);
+  margin-right: var(--sp-1);
+}
+.switcher-row.switcher-active .switcher-delete { color: var(--md-on-primary-container); opacity: .8; }
 .switcher-item {
   display: flex;
   align-items: center;
@@ -1122,7 +1233,7 @@ async function shareViaWhatsApp() {
   -webkit-tap-highlight-color: transparent;
 }
 .switcher-item:active { background: color-mix(in srgb, var(--md-on-surface) 8%, transparent); }
-.switcher-item.switcher-active { background: var(--md-primary-container); color: var(--md-on-primary-container); }
+.switcher-row.switcher-active .switcher-item { background: transparent; color: inherit; }
 .switcher-new {
   color: var(--md-primary);
   font-weight: 600;
@@ -1146,7 +1257,7 @@ async function shareViaWhatsApp() {
   font-size: 11px;
   color: var(--md-on-surface-variant);
 }
-.switcher-active .switcher-item-meta { color: var(--md-on-primary-container); opacity: .7; }
+.switcher-active .switcher-item-meta { color: inherit; opacity: .7; }
 .switcher-divider { height: 1px; background: var(--md-outline-variant); margin: var(--sp-1) 0; }
 .switcher-empty {
   padding: var(--sp-5) var(--sp-4);

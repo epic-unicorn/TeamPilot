@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { AGE_GROUPS } from '@/data/formations'
+import { DEFAULT_KNVB_CLASS, getKnvbClass } from '@/data/knvbClasses'
+import { syncCycleWeek } from '@/utils/cycleWeek'
 
 const STORAGE_KEY = 'teampilot_v1'
 
@@ -11,6 +13,9 @@ function defaultShirt(color = '#1a6b3c') {
 function migrateTeam(team) {
   if (!team.shirt) {
     team.shirt = defaultShirt(team.color ?? '#1a6b3c')
+  }
+  if (!team.knvbClass) {
+    team.knvbClass = DEFAULT_KNVB_CLASS
   }
   // Keep color in sync with shirt.primary for backward compat
   team.color = team.shirt.primary
@@ -30,6 +35,8 @@ function loadFromStorage() {
         l.teamId ? l : { ...l, teamId: fallbackTeamId }
       )
     }
+    if (!data.trainingState) data.trainingState = {}
+    if (!data.customExercises) data.customExercises = {}
     return data
   } catch {
     return null
@@ -43,6 +50,7 @@ function defaultState() {
         id: 'team-1',
         name: 'Mijn Team',
         ageGroup: 'JO11',
+        knvbClass: DEFAULT_KNVB_CLASS,
         color: '#1a6b3c',
         shirt: defaultShirt('#1a6b3c'),
         players: [],
@@ -51,6 +59,8 @@ function defaultState() {
     activeTeamId: 'team-1',
     activeLineupId: null,
     lineups: [],
+    trainingState: {},
+    customExercises: {},
   }
 }
 
@@ -62,9 +72,11 @@ export const useTeamStore = defineStore('team', () => {
   const activeLineupId = ref(saved.activeLineupId ?? null)
   const lineups = ref(saved.lineups)
   const recentColors = ref(saved.recentColors ?? [])
+  const trainingState = ref(saved.trainingState ?? {})
+  const customExercises = ref(saved.customExercises ?? {})
   // ── Persist on every change ──────────────────────────────────────────────
   watch(
-    [teams, activeTeamId, activeLineupId, lineups, recentColors],
+    [teams, activeTeamId, activeLineupId, lineups, recentColors, trainingState, customExercises],
     () => {
       localStorage.setItem(
         STORAGE_KEY,
@@ -74,6 +86,8 @@ export const useTeamStore = defineStore('team', () => {
           activeLineupId: activeLineupId.value,
           lineups: lineups.value,
           recentColors: recentColors.value,
+          trainingState: trainingState.value,
+          customExercises: customExercises.value,
         })
       )
     },
@@ -93,12 +107,17 @@ export const useTeamStore = defineStore('team', () => {
     AGE_GROUPS.find((g) => g.id === activeTeam.value?.ageGroup)
   )
 
+  const knvbClassConfig = computed(() =>
+    getKnvbClass(activeTeam.value?.knvbClass)
+  )
+
   // ── Team actions ─────────────────────────────────────────────────────────
-  function addTeam(name, ageGroup, color = '#1a6b3c') {
+  function addTeam(name, ageGroup, color = '#1a6b3c', knvbClass = DEFAULT_KNVB_CLASS) {
     const team = {
       id: `team-${Date.now()}`,
       name,
       ageGroup,
+      knvbClass,
       color,
       shirt: defaultShirt(color),
       players: [],
@@ -211,7 +230,12 @@ export const useTeamStore = defineStore('team', () => {
   }
 
   function importTeam(data) {
-    const newTeam = addTeam(data.name, data.ageGroup, data.shirt?.primary ?? '#1a6b3c')
+    const newTeam = addTeam(
+      data.name,
+      data.ageGroup,
+      data.shirt?.primary ?? '#1a6b3c',
+      data.knvbClass ?? DEFAULT_KNVB_CLASS,
+    )
     if (data.shirt) updateTeam(newTeam.id, { shirt: data.shirt })
     for (const p of (data.players ?? [])) {
       addPlayer({ name: p.name, number: p.number ?? null, position: p.position, teamId: newTeam.id })
@@ -244,15 +268,90 @@ export const useTeamStore = defineStore('team', () => {
     if (recentColors.value.length > 10) recentColors.value.splice(10)
   }
 
+  function getTrainingState(teamId = activeTeamId.value) {
+    if (!trainingState.value[teamId]) {
+      trainingState.value[teamId] = {
+        cycleWeek: 1,
+        cycleIsoWeek: null,
+        exerciseFeedback: {},
+        recentExerciseIds: [],
+        draftSession: null,
+      }
+    }
+    syncCycleWeek(trainingState.value[teamId])
+    return trainingState.value[teamId]
+  }
+
+  function recordExerciseFeedback(teamId, exerciseId, { like, dislike, rating }) {
+    const state = getTrainingState(teamId)
+    if (!state.exerciseFeedback[exerciseId]) {
+      state.exerciseFeedback[exerciseId] = { likes: 0, dislikes: 0, ratingSum: 0, count: 0 }
+    }
+    const fb = state.exerciseFeedback[exerciseId]
+    if (like) fb.likes++
+    if (dislike) fb.dislikes++
+    if (rating) {
+      fb.ratingSum += rating
+      fb.count++
+    }
+  }
+
+  function recordTrainingSession(teamId, exerciseIds) {
+    const state = getTrainingState(teamId)
+    state.recentExerciseIds = [...exerciseIds, ...(state.recentExerciseIds ?? [])].slice(0, 24)
+  }
+
+  function saveDraftSession(teamId, draft) {
+    const state = getTrainingState(teamId)
+    state.draftSession = draft
+      ? { ...draft, updatedAt: Date.now() }
+      : null
+  }
+
+  function getCustomExercises(teamId = activeTeamId.value) {
+    return customExercises.value[teamId] ?? []
+  }
+
+  function addCustomExercise(teamId, exercise) {
+    const list = [...(customExercises.value[teamId] ?? [])]
+    const idx = list.findIndex(e => e.id === exercise.id)
+    if (idx >= 0) list[idx] = exercise
+    else list.push(exercise)
+    customExercises.value = { ...customExercises.value, [teamId]: list }
+    return exercise
+  }
+
+  function mergeCustomExercises(teamId, exercises) {
+    if (!exercises?.length) return
+    for (const ex of exercises) {
+      addCustomExercise(teamId, ex)
+    }
+  }
+
+  function importSharedTraining(teamId, shared) {
+    if (shared.customExercises?.length) {
+      mergeCustomExercises(teamId, shared.customExercises)
+    }
+    saveDraftSession(teamId, {
+      trainingType: shared.trainingType,
+      durationMin: shared.durationMin,
+      playerCount: shared.playerCount,
+      blocks: shared.blocks,
+    })
+  }
+
   return {
     teams,
     activeTeamId,
     activeLineupId,
     lineups,
     recentColors,
+    trainingState,
+    customExercises,
     activeTeam,
     teamLineups,
     ageGroupConfig,
+    knvbClassConfig,
     addTeam,
     updateTeam,
     setActiveTeam,
@@ -267,5 +366,13 @@ export const useTeamStore = defineStore('team', () => {
     importTeam,
     mergeTeam,
     addRecentColors,
+    getTrainingState,
+    recordExerciseFeedback,
+    recordTrainingSession,
+    saveDraftSession,
+    importSharedTraining,
+    getCustomExercises,
+    addCustomExercise,
+    mergeCustomExercises,
   }
 })

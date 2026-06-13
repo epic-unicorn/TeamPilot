@@ -1,9 +1,39 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useTeamStore } from '../stores/teamStore'
+import { DEFAULT_KNVB_CLASS } from '../data/knvbClasses'
 
 beforeEach(() => {
   setActivePinia(createPinia())
+})
+
+// ── knvbClass ───────────────────────────────────────────────────────────────
+
+describe('knvbClass', () => {
+  it('defaults new teams to 5e klasse', () => {
+    const store = useTeamStore()
+    expect(store.activeTeam.knvbClass).toBe(DEFAULT_KNVB_CLASS)
+  })
+
+  it('stores knvbClass when creating a team', () => {
+    const store = useTeamStore()
+    const team = store.addTeam('Test', 'JO13', '#000000', '2e')
+    expect(team.knvbClass).toBe('2e')
+    store.setActiveTeam(team.id)
+    expect(store.knvbClassConfig.label).toBe('2e klasse')
+  })
+
+  it('preserves knvbClass on importTeam when provided', () => {
+    const store = useTeamStore()
+    const team = store.importTeam({ name: 'Ajax', ageGroup: 'JO13', knvbClass: 'hoofdklasse', players: [] })
+    expect(store.teams.find(t => t.id === team.id).knvbClass).toBe('hoofdklasse')
+  })
+
+  it('uses default knvbClass on importTeam when omitted', () => {
+    const store = useTeamStore()
+    const team = store.importTeam({ name: 'Ajax', ageGroup: 'JO13', players: [] })
+    expect(store.teams.find(t => t.id === team.id).knvbClass).toBe(DEFAULT_KNVB_CLASS)
+  })
 })
 
 // ── importTeam ──────────────────────────────────────────────────────────────
