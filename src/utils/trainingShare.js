@@ -1,13 +1,11 @@
 /**
- * Training share encoding / decoding.
+ * Training & recipe share encoding / decoding.
  *
- * Payload:
- * {
- *   _t: 'training',
- *   tn, a, k, tt, d, pc, cw,
- *   b:  [["ex-id", 10], ...],
- *   ce: { "custom-id": { title, category, ... } }  // embedded custom exercises
- * }
+ * Session payload (_t: 'training'):
+ * { _t, tn, a, k, tt, d, pc, cw, b, ce? }
+ *
+ * Recipe payload (_t: 'recipe'):
+ * { _t, n, th, tt, d, a, k, b, ce? }
  */
 
 import { isCustomExercise, restoreCustomExercise, serializeCustomForShare } from './customExercises'
@@ -33,6 +31,17 @@ function collectCustomExercises(blocks) {
     }
   }
   return Object.keys(ce).length ? ce : undefined
+}
+
+function parseCustomExercises(ce, ageGroup) {
+  if (!ce) return []
+  return Object.entries(ce).map(([id, data]) =>
+    restoreCustomExercise(id, data, ageGroup ?? 'JO11')
+  )
+}
+
+function parseBlocks(b, customById) {
+  return b.map(([id, durationMin]) => ({ exerciseId: id, durationMin }))
 }
 
 export function encodeTrainingSession({
@@ -61,27 +70,93 @@ export function encodeTrainingSession({
   return encode(payload)
 }
 
+export function encodeRecipe({
+  name,
+  trainingType,
+  durationMin,
+  cycleTheme,
+  ageGroup,
+  knvbClass,
+  blocks,
+}) {
+  const payload = {
+    _t: 'recipe',
+    n: name,
+    th: cycleTheme ?? null,
+    tt: trainingType,
+    d: durationMin,
+    a: ageGroup,
+    k: knvbClass,
+    b: blocks.map(bl => [bl.exercise.id, bl.durationMin]),
+  }
+  const ce = collectCustomExercises(blocks)
+  if (ce) payload.ce = ce
+  return encode(payload)
+}
+
+function decodeSessionPayload(d) {
+  const customById = d.ce ?? {}
+  const customExercises = parseCustomExercises(customById, d.a)
+
+  return {
+    kind: 'session',
+    teamName: d.tn ?? 'Training',
+    ageGroup: d.a ?? 'JO11',
+    knvbClass: d.k ?? '5e',
+    trainingType: d.tt ?? 'gemengd',
+    durationMin: d.d ?? 60,
+    playerCount: d.pc ?? 0,
+    cycleWeek: d.cw ?? 1,
+    blocks: parseBlocks(d.b, customById),
+    customExercises,
+  }
+}
+
+function decodeRecipePayload(d) {
+  const customExercises = parseCustomExercises(d.ce, d.a)
+
+  return {
+    kind: 'recipe',
+    name: d.n ?? 'Trainingsrecept',
+    cycleTheme: d.th ?? null,
+    trainingType: d.tt ?? 'gemengd',
+    durationMin: d.d ?? 60,
+    ageGroup: d.a ?? 'JO11',
+    knvbClass: d.k ?? '5e',
+    blocks: parseBlocks(d.b),
+    customExercises,
+  }
+}
+
 export function decodeTrainingSession(encoded) {
   try {
     const d = decode(encoded)
     if (d._t !== 'training' || !Array.isArray(d.b)) return null
+    const { kind, ...rest } = decodeSessionPayload(d)
+    return rest
+  } catch {
+    return null
+  }
+}
 
-    const customById = d.ce ?? {}
-    const customExercises = Object.entries(customById).map(([id, data]) =>
-      restoreCustomExercise(id, data, d.a ?? 'JO11')
-    )
+export function decodeRecipe(encoded) {
+  try {
+    const d = decode(encoded)
+    if (d._t !== 'recipe' || !Array.isArray(d.b)) return null
+    const { kind, ...rest } = decodeRecipePayload(d)
+    return rest
+  } catch {
+    return null
+  }
+}
 
-    return {
-      teamName: d.tn ?? 'Training',
-      ageGroup: d.a ?? 'JO11',
-      knvbClass: d.k ?? '5e',
-      trainingType: d.tt ?? 'gemengd',
-      durationMin: d.d ?? 60,
-      playerCount: d.pc ?? 0,
-      cycleWeek: d.cw ?? 1,
-      blocks: d.b.map(([id, durationMin]) => ({ exerciseId: id, durationMin })),
-      customExercises,
-    }
+export function decodeSharedTraining(encoded) {
+  try {
+    const d = decode(encoded)
+    if (!Array.isArray(d.b)) return null
+    if (d._t === 'recipe') return decodeRecipePayload(d)
+    if (d._t === 'training') return decodeSessionPayload(d)
+    return null
   } catch {
     return null
   }
@@ -91,8 +166,22 @@ export function buildTrainingShareUrl(encoded) {
   return `${window.location.origin}${window.location.pathname}#/training/view?training=${encoded}`
 }
 
+export function buildRecipeShareUrl(encoded) {
+  return buildTrainingShareUrl(encoded)
+}
+
 export function resolveSharedExercise(exerciseId, customExercises = []) {
   const custom = customExercises.find(e => e.id === exerciseId)
   if (custom) return custom
   return null
+}
+
+export function shareUrl({ title, text, url }) {
+  if (navigator.share) {
+    navigator.share({ title, text, url }).catch(() => {})
+  } else {
+    navigator.clipboard.writeText(url)
+      .then(() => true)
+      .catch(() => false)
+  }
 }

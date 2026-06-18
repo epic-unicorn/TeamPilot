@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { AGE_GROUPS } from '@/data/formations'
 import { DEFAULT_KNVB_CLASS, getKnvbClass } from '@/data/knvbClasses'
 import { syncCycleWeek } from '@/utils/cycleWeek'
+import { createSavedTraining, MAX_SAVED_TRAININGS } from '@/utils/savedTraining'
 
 const STORAGE_KEY = 'teampilot_v1'
 
@@ -37,6 +38,7 @@ function loadFromStorage() {
     }
     if (!data.trainingState) data.trainingState = {}
     if (!data.customExercises) data.customExercises = {}
+    if (!data.savedTrainings) data.savedTrainings = {}
     return data
   } catch {
     return null
@@ -61,6 +63,7 @@ function defaultState() {
     lineups: [],
     trainingState: {},
     customExercises: {},
+    savedTrainings: {},
   }
 }
 
@@ -74,9 +77,10 @@ export const useTeamStore = defineStore('team', () => {
   const recentColors = ref(saved.recentColors ?? [])
   const trainingState = ref(saved.trainingState ?? {})
   const customExercises = ref(saved.customExercises ?? {})
+  const savedTrainings = ref(saved.savedTrainings ?? {})
   // ── Persist on every change ──────────────────────────────────────────────
   watch(
-    [teams, activeTeamId, activeLineupId, lineups, recentColors, trainingState, customExercises],
+    [teams, activeTeamId, activeLineupId, lineups, recentColors, trainingState, customExercises, savedTrainings],
     () => {
       localStorage.setItem(
         STORAGE_KEY,
@@ -88,6 +92,7 @@ export const useTeamStore = defineStore('team', () => {
           recentColors: recentColors.value,
           trainingState: trainingState.value,
           customExercises: customExercises.value,
+          savedTrainings: savedTrainings.value,
         })
       )
     },
@@ -322,6 +327,88 @@ export const useTeamStore = defineStore('team', () => {
       durationMin: shared.durationMin,
       playerCount: shared.playerCount,
       blocks: shared.blocks,
+      activeSavedTrainingId: shared.activeSavedTrainingId ?? null,
+    })
+  }
+
+  function getSavedTrainings(teamId = activeTeamId.value) {
+    return savedTrainings.value[teamId] ?? []
+  }
+
+  function getSavedTraining(teamId, id) {
+    return getSavedTrainings(teamId).find(r => r.id === id) ?? null
+  }
+
+  function addSavedTraining(teamId, recipe) {
+    const list = [recipe, ...getSavedTrainings(teamId)]
+    if (list.length > MAX_SAVED_TRAININGS) list.length = MAX_SAVED_TRAININGS
+    savedTrainings.value = { ...savedTrainings.value, [teamId]: list }
+    return recipe
+  }
+
+  function updateSavedTraining(teamId, id, patch) {
+    const list = getSavedTrainings(teamId).map(r =>
+      r.id === id
+        ? {
+            ...r,
+            ...patch,
+            updatedAt: Date.now(),
+            exerciseCount: patch.blocks?.length ?? r.exerciseCount,
+          }
+        : r
+    )
+    savedTrainings.value = { ...savedTrainings.value, [teamId]: list }
+    return list.find(r => r.id === id) ?? null
+  }
+
+  function deleteSavedTraining(teamId, id) {
+    savedTrainings.value = {
+      ...savedTrainings.value,
+      [teamId]: getSavedTrainings(teamId).filter(r => r.id !== id),
+    }
+  }
+
+  function duplicateSavedTraining(teamId, id) {
+    const original = getSavedTraining(teamId, id)
+    if (!original) return null
+    const copy = createSavedTraining({
+      name: `${original.name} (kopie)`,
+      trainingType: original.trainingType,
+      durationMin: original.durationMin,
+      cycleTheme: original.cycleTheme,
+      blocks: original.blocks.map(b => ({ ...b })),
+      source: 'duplicated',
+      notes: original.notes,
+    })
+    return addSavedTraining(teamId, copy)
+  }
+
+  function importSharedRecipe(teamId, data, name) {
+    if (data.customExercises?.length) {
+      mergeCustomExercises(teamId, data.customExercises)
+    }
+    const recipe = createSavedTraining({
+      name,
+      trainingType: data.trainingType,
+      durationMin: data.durationMin,
+      cycleTheme: data.cycleTheme ?? null,
+      blocks: data.blocks,
+      source: 'imported',
+      sharedFrom: data.name ? { name: data.name, importedAt: Date.now() } : null,
+    })
+    return addSavedTraining(teamId, recipe)
+  }
+
+  function loadSharedRecipeToSession(teamId, data) {
+    if (data.customExercises?.length) {
+      mergeCustomExercises(teamId, data.customExercises)
+    }
+    saveDraftSession(teamId, {
+      trainingType: data.trainingType,
+      durationMin: data.durationMin,
+      playerCount: data.playerCount ?? null,
+      blocks: data.blocks,
+      activeSavedTrainingId: null,
     })
   }
 
@@ -333,6 +420,7 @@ export const useTeamStore = defineStore('team', () => {
     recentColors,
     trainingState,
     customExercises,
+    savedTrainings,
     activeTeam,
     teamLineups,
     ageGroupConfig,
@@ -358,5 +446,13 @@ export const useTeamStore = defineStore('team', () => {
     getCustomExercises,
     addCustomExercise,
     mergeCustomExercises,
+    getSavedTrainings,
+    getSavedTraining,
+    addSavedTraining,
+    updateSavedTraining,
+    deleteSavedTraining,
+    duplicateSavedTraining,
+    importSharedRecipe,
+    loadSharedRecipeToSession,
   }
 })

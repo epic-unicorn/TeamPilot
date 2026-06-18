@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { syncCycleWeek, getIsoWeekKey } from '../utils/cycleWeek'
-import { encodeTrainingSession, decodeTrainingSession } from '../utils/trainingShare'
+import { encodeTrainingSession, decodeTrainingSession, encodeRecipe, decodeRecipe, decodeSharedTraining } from '../utils/trainingShare'
 import { EXERCISES } from '../data/exercises'
 import { buildCustomExercise } from '../utils/customExercises'
 
@@ -45,6 +45,28 @@ describe('trainingShare', () => {
 
   it('returns null for invalid payload', () => {
     expect(decodeTrainingSession('invalid')).toBeNull()
+    expect(decodeRecipe('invalid')).toBeNull()
+    expect(decodeSharedTraining('invalid')).toBeNull()
+  })
+
+  it('round-trips recipe encode and decode', () => {
+    const encoded = encodeRecipe({
+      name: 'Passing basis',
+      trainingType: 'techniek',
+      durationMin: 60,
+      cycleTheme: 'passing',
+      ageGroup: 'JO11',
+      knvbClass: '5e',
+      blocks: [{ exercise: EXERCISES[0], durationMin: 10 }],
+    })
+    const decoded = decodeRecipe(encoded)
+    expect(decoded.name).toBe('Passing basis')
+    expect(decoded.cycleTheme).toBe('passing')
+    expect(decoded.blocks).toEqual([{ exerciseId: EXERCISES[0].id, durationMin: 10 }])
+
+    const shared = decodeSharedTraining(encoded)
+    expect(shared.kind).toBe('recipe')
+    expect(shared.name).toBe('Passing basis')
   })
 
   it('embeds custom exercises in share payload', () => {

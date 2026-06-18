@@ -28,7 +28,7 @@
                 Cyclus week {{ cycleWeek }}/4
               </span>
               <span class="hero-chip hero-chip--theme md-label-sm">
-                <span class="material-symbols-rounded" aria-hidden="true">fitness_center</span>
+                <span class="material-symbols-rounded" aria-hidden="true">{{ cycleThemeIcon }}</span>
                 {{ cycleThemeLabel }}
               </span>
             </template>
@@ -239,7 +239,8 @@ import { computed } from 'vue'
 import { useTeamStore } from '@/stores/teamStore'
 import { AGE_GROUPS } from '@/data/formations'
 import { KNVB_CLASSES } from '@/data/knvbClasses'
-import { getCycleThemeLabel } from '@/utils/trainingEngine'
+import { getCycleThemeLabel, getCycleTheme } from '@/utils/trainingEngine'
+import { getCycleThemeIcon } from '@/utils/trainingIcons'
 import ShirtAvatar from '@/components/ui/ShirtAvatar.vue'
 import { showSnackbar } from '@/composables/useSnackbar'
 import { useMediaQuery } from '@/composables/useMediaQuery'
@@ -253,7 +254,9 @@ const knvbClassConfig = computed(() => store.knvbClassConfig)
 const recentColors = computed(() => store.recentColors.slice(0, 3))
 const playerCount = computed(() => activeTeam.value?.players?.length ?? 0)
 const cycleWeek = computed(() => store.getTrainingState().cycleWeek ?? 1)
-const cycleThemeLabel = computed(() => getCycleThemeLabel(cycleWeek.value))
+const cycleTheme = computed(() => getCycleTheme(cycleWeek.value))
+const cycleThemeLabel = computed(() => getCycleThemeLabel(cycleTheme.value))
+const cycleThemeIcon = computed(() => getCycleThemeIcon(cycleTheme.value))
 
 /** Team not yet configured — no players added yet. */
 const needsTeamSetup = computed(() => playerCount.value === 0)
@@ -290,7 +293,7 @@ const heroContinue = computed(() => {
     }
   }
   return {
-    icon: 'fitness_center',
+    icon: getCycleThemeIcon(cycleTheme.value),
     title: 'Plan je training',
     subtitle: `Weekthema: ${cycleThemeLabel.value}`,
     to: '/training',
@@ -423,12 +426,7 @@ function shareTeam() {
   overflow: hidden;
   position: relative;
   color: var(--md-on-primary);
-  background: linear-gradient(
-    135deg,
-    var(--md-primary) 0%,
-    var(--md-secondary) 55%,
-    color-mix(in srgb, var(--md-on-primary-container) 88%, var(--md-primary)) 100%
-  );
+  background: var(--md-primary);
   box-shadow: var(--md-elevation-2);
 }
 
@@ -436,9 +434,7 @@ function shareTeam() {
   content: '';
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(ellipse 70% 80% at 100% -10%, rgba(255, 255, 255, 0.14) 0%, transparent 55%),
-    radial-gradient(circle at 0% 100%, rgba(255, 255, 255, 0.07) 0%, transparent 45%);
+  background: radial-gradient(ellipse 80% 60% at 100% 0%, rgba(255, 255, 255, 0.1) 0%, transparent 55%);
   pointer-events: none;
 }
 

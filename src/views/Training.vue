@@ -21,55 +21,110 @@
       <div v-show="activeTab === 'session'" class="tab-panel session-panel">
         <div class="session-layout">
           <div class="session-main">
-            <TrainingSettingsPanel
-              v-if="!isDesktop"
-              variant="collapsible"
-              :force-open="!sessionBlocks.length"
-              :summary="settingsSummary"
-              :roster="roster"
-              :present-ids="presentIds"
-              :all-present="allPresent"
-              :balance="balance"
-              :training-type="trainingType"
-              :duration-min="durationMin"
-              :cycle-week="syncedCycleWeek"
-              :cycle-theme-label="cycleThemeLabel"
-              :training-types="TRAINING_TYPES"
-              @toggle-all="toggleAll"
-              @toggle-player="togglePlayer"
-              @update:training-type="trainingType = $event"
-              @update:duration-min="durationMin = +$event || 60"
-            />
+            <div class="session-start card">
+              <div class="session-start-header">
+                <h2 class="md-title-sm session-start-title">Start je training</h2>
+                <p class="md-label-sm session-start-theme">
+                  <span class="material-symbols-rounded session-start-theme-icon" aria-hidden="true">{{ cycleThemeIcon }}</span>
+                  Week {{ syncedCycleWeek }}/4 · {{ cycleThemeLabel }}
+                </p>
+              </div>
 
-            <div class="status-bar card" :class="{ 'status-bar--warn': sessionTiming.totalMin !== durationMin }">
-              <span class="md-label-md status-count">
-                {{ sessionBlocks.length }}
-                {{ sessionBlocks.length === 1 ? 'oefening' : 'oefeningen' }}
-              </span>
-              <span class="status-sep" aria-hidden="true">·</span>
-              <span class="md-label-sm status-timing">
-                {{ sessionTiming.totalMin }}/{{ durationMin }} min
-              </span>
-            </div>
+              <TrainingSettingsPanel
+                v-if="!isDesktop"
+                variant="collapsible"
+                nested
+                :force-open="!sessionBlocks.length"
+                :summary="presentSummary"
+                :show-present="true"
+                :show-config="false"
+                :show-cycle-info="false"
+                :roster="roster"
+                :present-ids="presentIds"
+                :all-present="allPresent"
+                :balance="balance"
+                :training-type="trainingType"
+                :duration-min="durationMin"
+                :cycle-week="syncedCycleWeek"
+                :cycle-theme-label="cycleThemeLabel"
+                :training-types="TRAINING_TYPES"
+                @toggle-all="toggleAll"
+                @toggle-player="togglePlayer"
+              />
 
-            <button
-              type="button"
-              class="btn btn-filled generate-btn"
-              :disabled="!presentPlayers.length"
-              @click="generate"
-            >
-              <span class="material-symbols-rounded" aria-hidden="true">auto_fix_high</span>
-              Genereer training
-            </button>
+              <TrainingSettingsPanel
+                variant="embedded"
+                :show-present="false"
+                :show-config="true"
+                :show-cycle-info="false"
+                :roster="roster"
+                :present-ids="presentIds"
+                :all-present="allPresent"
+                :balance="balance"
+                :training-type="trainingType"
+                :duration-min="durationMin"
+                :cycle-week="syncedCycleWeek"
+                :cycle-theme-label="cycleThemeLabel"
+                :training-types="TRAINING_TYPES"
+                @update:training-type="trainingType = $event"
+                @update:duration-min="durationMin = +$event || 60"
+              />
 
-            <section v-if="sessionBlocks.length" class="card card-elevated session-card">
-              <div class="session-card-head">
-                <p class="md-title-sm">Trainingsoverzicht</p>
-                <button type="button" class="btn btn-tonal share-btn" @click="shareTraining">
-                  <span class="material-symbols-rounded" style="font-size:18px">share</span>
-                  Delen
+              <div class="session-start-divider" aria-hidden="true" />
+
+              <div class="session-start-actions">
+                <button type="button" class="btn btn-tonal session-start-btn" @click="showPickSaved = true">
+                  <span class="material-symbols-rounded" aria-hidden="true">bookmark</span>
+                  Kies opgeslagen
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-filled session-start-btn"
+                  :disabled="!presentPlayers.length"
+                  @click="generate"
+                >
+                  <span class="material-symbols-rounded" aria-hidden="true">auto_fix_high</span>
+                  Genereer
                 </button>
               </div>
+
+              <p v-if="activeSavedTrainingName" class="md-label-sm session-source">
+                Gebaseerd op: {{ activeSavedTrainingName }}
+              </p>
+            </div>
+
+            <section v-if="sessionBlocks.length" class="card card-elevated session-card">
+              <header class="session-card-head">
+                <div class="session-card-intro">
+                  <h2 class="md-title-sm session-card-title">Trainingsoverzicht</h2>
+                  <p
+                    class="md-label-sm session-card-meta"
+                    :class="{ 'session-card-meta--warn': sessionTiming.totalMin !== durationMin }"
+                  >
+                    {{ sessionBlocks.length }}
+                    {{ sessionBlocks.length === 1 ? 'oefening' : 'oefeningen' }}
+                    · {{ sessionTiming.totalMin }}/{{ durationMin }} min
+                  </p>
+                </div>
+                <div class="session-card-toolbar">
+                  <button
+                    v-if="activeSavedTrainingId"
+                    type="button"
+                    class="btn btn-outlined toolbar-btn"
+                    @click="updateActiveSaved"
+                  >
+                    Bijwerken
+                  </button>
+                  <button type="button" class="btn btn-tonal toolbar-btn" @click="openSaveDialog()">
+                    <span class="material-symbols-rounded toolbar-icon" aria-hidden="true">bookmark_add</span>
+                    <span class="toolbar-label">Opslaan</span>
+                  </button>
+                  <button type="button" class="btn btn-tonal toolbar-btn" @click="shareTraining">
+                    <span class="material-symbols-rounded toolbar-icon" aria-hidden="true">share</span>
+                    <span class="toolbar-label">Deel sessie</span>
+                  </button>
+                </div>
+              </header>
 
               <div class="session-list">
                 <template v-for="(block, i) in sessionBlocks" :key="block.uid">
@@ -147,11 +202,11 @@
               <span class="material-symbols-rounded session-empty-icon" aria-hidden="true">stadium</span>
               <p class="md-title-sm">Nog geen training</p>
               <p class="md-body-sm session-empty-text">
-                Genereer een training of kies oefeningen in de Bibliotheek.
+                Kies een opgeslagen training, genereer een sessie, of voeg oefeningen toe via de Bibliotheek.
               </p>
-              <button type="button" class="btn btn-tonal" @click="activeTab = 'library'">
-                <span class="material-symbols-rounded" aria-hidden="true">library_books</span>
-                Naar bibliotheek
+              <button type="button" class="btn btn-tonal" @click="activeTab = 'saved'">
+                <span class="material-symbols-rounded" aria-hidden="true">bookmark</span>
+                Opgeslagen trainingen
               </button>
             </div>
           </div>
@@ -159,7 +214,9 @@
           <aside v-if="isDesktop" class="session-sidebar">
             <TrainingSettingsPanel
               variant="sidebar"
-              :summary="settingsSummary"
+              :show-present="true"
+              :show-config="false"
+              :show-cycle-info="false"
               :roster="roster"
               :present-ids="presentIds"
               :all-present="allPresent"
@@ -171,11 +228,21 @@
               :training-types="TRAINING_TYPES"
               @toggle-all="toggleAll"
               @toggle-player="togglePlayer"
-              @update:training-type="trainingType = $event"
-              @update:duration-min="durationMin = +$event || 60"
             />
           </aside>
         </div>
+      </div>
+
+      <!-- Tab: Opgeslagen -->
+      <div v-show="activeTab === 'saved'" class="tab-panel">
+        <SavedTrainingsPanel
+          :recipes="savedRecipes"
+          @use="useSavedRecipe"
+          @edit="editSavedRecipe"
+          @share="shareSavedRecipe"
+          @duplicate="duplicateSavedRecipe"
+          @delete="deleteSavedRecipe"
+        />
       </div>
 
       <!-- Tab: Bibliotheek -->
@@ -210,6 +277,21 @@
       @close="showCustomDialog = false"
       @save="onCustomExerciseSaved"
     />
+
+    <SaveTrainingDialog
+      :open="showSaveDialog"
+      :default-name="saveDefaultName"
+      :default-theme="saveDefaultTheme"
+      @close="closeSaveDialog"
+      @save="onSaveDialogSubmit"
+    />
+
+    <PickSavedTrainingDialog
+      :open="showPickSaved"
+      :recipes="savedRecipes"
+      @close="showPickSaved = false"
+      @select="onPickSaved"
+    />
   </div>
 </template>
 
@@ -226,13 +308,23 @@ import {
   analyzePlayerBalance,
   computeSessionTiming,
 } from '@/utils/trainingEngine'
-import { encodeTrainingSession, buildTrainingShareUrl } from '@/utils/trainingShare'
+import { encodeTrainingSession, encodeRecipe, buildTrainingShareUrl, buildRecipeShareUrl } from '@/utils/trainingShare'
+import {
+  defaultSavedName,
+  blocksToSerializable,
+  resolveSavedBlocks,
+  savedTrainingFromSession,
+} from '@/utils/savedTraining'
+import { getCycleThemeIcon } from '@/utils/trainingIcons'
 import { getKnvbLevel } from '@/data/knvbClasses'
 import ExerciseDetailDialog from '@/components/training/ExerciseDetailDialog.vue'
 import ExerciseLibraryPanel from '@/components/training/ExerciseLibraryPanel.vue'
 import TrainingSettingsPanel from '@/components/training/TrainingSettingsPanel.vue'
 import TrainingTabBar from '@/components/training/TrainingTabBar.vue'
 import CustomExerciseDialog from '@/components/training/CustomExerciseDialog.vue'
+import SaveTrainingDialog from '@/components/training/SaveTrainingDialog.vue'
+import PickSavedTrainingDialog from '@/components/training/PickSavedTrainingDialog.vue'
+import SavedTrainingsPanel from '@/components/training/SavedTrainingsPanel.vue'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import { showSnackbar } from '@/composables/useSnackbar'
 import { playerRangeLabel, getExerciseTitle, isCustomExercise } from '@/utils/exerciseText'
@@ -250,6 +342,9 @@ const presentIds = ref(new Set())
 const trainingType = ref('gemengd')
 const durationMin = ref(60)
 const sessionBlocks = ref([])
+const activeSavedTrainingId = ref(null)
+const showSaveDialog = ref(false)
+const showPickSaved = ref(false)
 const activeTab = ref('session')
 const showCustomDialog = ref(false)
 const detailBlock = ref(null)
@@ -287,6 +382,12 @@ const tabItems = computed(() => [
     badge: sessionBlocks.value.length || null,
   },
   {
+    id: 'saved',
+    label: 'Opgeslagen',
+    icon: 'bookmark',
+    badge: savedRecipes.value.length || null,
+  },
+  {
     id: 'library',
     label: 'Bibliotheek',
     icon: 'library_books',
@@ -294,13 +395,34 @@ const tabItems = computed(() => [
   },
 ])
 
+const savedRecipes = computed(() =>
+  [...store.getSavedTrainings(store.activeTeamId)].sort((a, b) => b.updatedAt - a.updatedAt)
+)
+
+const activeSavedTrainingName = computed(() => {
+  if (!activeSavedTrainingId.value) return null
+  return store.getSavedTraining(store.activeTeamId, activeSavedTrainingId.value)?.name ?? null
+})
+
+const saveDefaultName = computed(() =>
+  defaultSavedName({
+    cycleWeek: syncedCycleWeek.value,
+    cycleThemeLabel: cycleThemeLabel.value,
+    trainingTypeLabel: trainingTypeLabel.value,
+  })
+)
+
+const saveDefaultTheme = computed(() => getCycleTheme(syncedCycleWeek.value))
+
 const trainingTypeLabel = computed(() =>
   TRAINING_TYPES.find(t => t.id === trainingType.value)?.label ?? trainingType.value
 )
 
-const settingsSummary = computed(() =>
-  `${presentPlayers.value.length} aanwezig · ${durationMin.value} min · ${trainingTypeLabel.value} · Week ${syncedCycleWeek.value}: ${cycleThemeLabel.value}`
-)
+const presentSummary = computed(() => {
+  const n = presentPlayers.value.length
+  const count = n === 1 ? '1 aanwezig' : `${n} aanwezig`
+  return `Wie is er? · ${count}`
+})
 
 function isDragExcludedTarget(el) {
   return el?.closest('input, .session-duration, button[aria-label="Verwijderen"], .drag-handle')
@@ -417,9 +539,17 @@ watch(
   },
 )
 
+watch(
+  () => route.query.saved,
+  value => {
+    if (value === '1') activeTab.value = 'saved'
+  },
+)
+
 onMounted(() => {
   loadDraft()
   if (route.query.library === '1') activeTab.value = 'library'
+  if (route.query.saved === '1') activeTab.value = 'saved'
 })
 
 onUnmounted(() => {
@@ -431,6 +561,7 @@ onUnmounted(() => {
 function loadDraft() {
   const draft = trainingState.value.draftSession
   const customList = store.getCustomExercises(store.activeTeamId)
+  activeSavedTrainingId.value = draft?.activeSavedTrainingId ?? null
   if (!draft?.blocks?.length) {
     sessionBlocks.value = []
     return
@@ -452,6 +583,7 @@ function loadDraft() {
 function persistDraft() {
   if (!sessionBlocks.value.length) {
     store.saveDraftSession(store.activeTeamId, null)
+    activeSavedTrainingId.value = null
     return
   }
   store.saveDraftSession(store.activeTeamId, {
@@ -459,6 +591,7 @@ function persistDraft() {
     durationMin: durationMin.value,
     playerCount: presentPlayers.value.length,
     presentPlayerIds: [...presentIds.value],
+    activeSavedTrainingId: activeSavedTrainingId.value,
     blocks: sessionBlocks.value.map(b => ({
       exerciseId: b.exercise.id,
       durationMin: b.durationMin,
@@ -567,6 +700,8 @@ const cycleThemeLabel = computed(() =>
   getCycleThemeLabel(getCycleTheme(syncedCycleWeek.value))
 )
 
+const cycleThemeIcon = computed(() => getCycleThemeIcon(getCycleTheme(syncedCycleWeek.value)))
+
 const syncedCycleWeek = computed(() => trainingState.value.cycleWeek ?? 1)
 
 const sessionTiming = computed(() =>
@@ -624,6 +759,7 @@ function generate() {
     presentPlayers: presentPlayers.value,
   })
   sessionBlocks.value = result.blocks.map(b => makeBlock(b.exercise, b.durationMin))
+  activeSavedTrainingId.value = null
   store.recordTrainingSession(
     store.activeTeamId,
     result.blocks.map(b => b.exercise.id),
@@ -631,6 +767,115 @@ function generate() {
   persistDraft()
   activeTab.value = 'session'
   showSnackbar(`Training gegenereerd (${result.blocks.length} oefeningen, ${result.totalMin} min)`)
+}
+
+function loadRecipeIntoSession(recipe) {
+  const customList = store.getCustomExercises(store.activeTeamId)
+  const resolved = resolveSavedBlocks(recipe, customList)
+  if (!resolved.length) {
+    showSnackbar('Oefeningen niet beschikbaar voor dit recept')
+    return false
+  }
+  trainingType.value = recipe.trainingType
+  durationMin.value = recipe.durationMin
+  sessionBlocks.value = resolved.map(b => makeBlock(b.exercise, b.durationMin))
+  activeSavedTrainingId.value = recipe.id
+  persistDraft()
+  activeTab.value = 'session'
+  return true
+}
+
+function useSavedRecipe(recipe) {
+  if (loadRecipeIntoSession(recipe)) {
+    showSnackbar(`"${recipe.name}" geladen`)
+  }
+}
+
+function editSavedRecipe(recipe) {
+  if (loadRecipeIntoSession(recipe)) {
+    showSnackbar(`"${recipe.name}" bewerken in Sessie`)
+  }
+}
+
+function duplicateSavedRecipe(recipe) {
+  const copy = store.duplicateSavedTraining(store.activeTeamId, recipe.id)
+  if (copy) showSnackbar(`"${copy.name}" aangemaakt`)
+}
+
+function deleteSavedRecipe(recipe) {
+  if (activeSavedTrainingId.value === recipe.id) {
+    activeSavedTrainingId.value = null
+  }
+  store.deleteSavedTraining(store.activeTeamId, recipe.id)
+  showSnackbar('Trainingsrecept verwijderd')
+}
+
+function openSaveDialog() {
+  showSaveDialog.value = true
+}
+
+function closeSaveDialog() {
+  showSaveDialog.value = false
+}
+
+function onSaveDialogSubmit({ name, cycleTheme }) {
+  const recipe = savedTrainingFromSession({
+    name,
+    trainingType: trainingType.value,
+    durationMin: durationMin.value,
+    cycleTheme,
+    blocks: sessionBlocks.value,
+    source: 'manual',
+  })
+  store.addSavedTraining(store.activeTeamId, recipe)
+  activeSavedTrainingId.value = recipe.id
+  persistDraft()
+  closeSaveDialog()
+  showSnackbar(`"${name}" opgeslagen`)
+}
+
+function updateActiveSaved() {
+  if (!activeSavedTrainingId.value) return
+  const existing = store.getSavedTraining(store.activeTeamId, activeSavedTrainingId.value)
+  if (!existing) return
+  store.updateSavedTraining(store.activeTeamId, activeSavedTrainingId.value, {
+    trainingType: trainingType.value,
+    durationMin: durationMin.value,
+    blocks: blocksToSerializable(sessionBlocks.value),
+  })
+  showSnackbar(`"${existing.name}" bijgewerkt`)
+}
+
+function onPickSaved(recipe) {
+  showPickSaved.value = false
+  useSavedRecipe(recipe)
+}
+
+function shareSavedRecipe(recipe) {
+  const customList = store.getCustomExercises(store.activeTeamId)
+  const blocks = resolveSavedBlocks(recipe, customList)
+  if (!blocks.length) {
+    showSnackbar('Kan recept niet delen — oefeningen ontbreken')
+    return
+  }
+  const encoded = encodeRecipe({
+    name: recipe.name,
+    trainingType: recipe.trainingType,
+    durationMin: recipe.durationMin,
+    cycleTheme: recipe.cycleTheme,
+    ageGroup: activeTeam.value.ageGroup,
+    knvbClass: activeTeam.value.knvbClass,
+    blocks,
+  })
+  const url = buildRecipeShareUrl(encoded)
+  const text = `${recipe.name} — TeamPilot trainingsrecept`
+  if (navigator.share) {
+    navigator.share({ title: 'TeamPilot trainingsrecept', text, url }).catch(() => {})
+  } else {
+    navigator.clipboard.writeText(url)
+      .then(() => showSnackbar('Receptlink gekopieerd!'))
+      .catch(() => showSnackbar('Kopiëren mislukt'))
+  }
 }
 
 function shareTraining() {
@@ -732,49 +977,155 @@ function addFromPreview(ex) {
   min-width: 0;
 }
 
-.status-bar {
+.session-card-head {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--md-outline-variant);
+}
+
+.session-card-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.session-card-title {
+  margin: 0;
+  line-height: 1.3;
+}
+
+.session-card-meta {
+  margin: 0;
+  color: var(--md-on-surface-variant);
+}
+
+.session-card-meta--warn {
+  color: var(--md-tertiary);
+}
+
+.session-card-toolbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
   gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-3);
+  width: 100%;
+}
+
+.toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  min-height: 40px;
+  padding: 0 var(--sp-2);
+  font-size: 13px;
+}
+
+.toolbar-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.toolbar-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 720px) {
+  .session-card-head {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+  }
+
+  .session-card-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    width: auto;
+    flex-shrink: 0;
+  }
+
+  .toolbar-btn {
+    min-height: 36px;
+    padding: 0 var(--sp-3);
+    font-size: inherit;
+  }
+}
+
+@media (max-width: 380px) {
+  .toolbar-btn:has(.toolbar-icon) .toolbar-label {
+    display: none;
+  }
+
+  .toolbar-btn:has(.toolbar-icon) {
+    padding: 0;
+    min-width: 40px;
+  }
+}
+
+.session-start {
+  padding: var(--sp-4);
   background: var(--md-surface-container-low);
   border: 1px solid var(--md-outline-variant);
 }
 
-.status-bar--warn {
-  border-color: color-mix(in srgb, var(--md-tertiary) 50%, var(--md-outline-variant));
+.session-start-header {
+  margin-bottom: var(--sp-3);
 }
 
-.status-sep {
-  color: var(--md-outline);
+.session-start-title {
+  margin: 0;
 }
 
-.status-timing {
+.session-start-theme {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1);
+  margin: var(--sp-1) 0 0;
   color: var(--md-on-surface-variant);
 }
 
-.generate-btn {
-  width: 100%;
+.session-start-theme-icon {
+  font-size: 16px;
+  color: var(--md-primary);
+}
+
+.session-start-divider {
+  height: 1px;
+  margin: var(--sp-3) 0;
+  background: var(--md-outline-variant);
+}
+
+.session-start-label {
+  margin: 0 0 var(--sp-2);
+}
+
+.session-start-actions {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.session-start-btn {
+  flex: 1;
   min-height: 44px;
+}
+
+.session-source {
+  margin: var(--sp-2) 0 0;
+  color: var(--md-on-surface-variant);
 }
 
 .session-card,
 .session-empty {
   padding: var(--sp-3);
-}
-
-.session-card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-2);
-  margin-bottom: var(--sp-2);
-}
-
-.share-btn {
-  height: 36px;
-  flex-shrink: 0;
 }
 
 .saved-hint {
