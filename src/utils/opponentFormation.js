@@ -1,5 +1,7 @@
 import { FORMATIONS, FORMATION_Y } from '@/data/formations'
 
+export const OPPONENT_MODES = ['off', 'mirror', 'optimal', 'alternative']
+
 /** Tactical counter formation per formation id */
 const COUNTER_MAP = {
   '2-2-1':   '2-1-2',
@@ -14,25 +16,27 @@ const COUNTER_MAP = {
   '3-5-2':   '4-3-3',
 }
 
-/**
- * Pick the strongest counter formation for the given lineup.
- * Mirrors slots to the opponent half (y → 100 − y).
- */
-export function buildOpponentSlots({ ageGroup, formationId, fieldSlots, playerCount }) {
-  const formations = FORMATIONS[ageGroup] ?? []
-  const counterId = formationId ? (COUNTER_MAP[formationId] ?? formations[0]?.id) : formations[0]?.id
-  const counter = formations.find(f => f.id === counterId) ?? formations[0]
+const MODE_LABELS = {
+  off: 'Tegenstander uit',
+  mirror: 'Zelfde opstelling voor tegenstander',
+  optimal: 'Optimale tegenstander opstelling',
+  alternative: 'Alternatieve tegenstander opstelling',
+}
 
-  if (counter) {
-    return counter.slots.map((slot, i) => ({
-      slotId: `opp-${i}`,
-      x: slot.x,
-      y: 100 - slot.y,
-      number: i + 1,
-    }))
-  }
+export function getOpponentModeLabel(mode) {
+  return MODE_LABELS[mode] ?? MODE_LABELS.off
+}
 
-  // Free mode: mirror filled own slots, or fall back to even spread
+function slotsFromFormation(formation) {
+  return formation.slots.map((slot, i) => ({
+    slotId: `opp-${i}`,
+    x: slot.x,
+    y: 100 - slot.y,
+    number: i + 1,
+  }))
+}
+
+function mirrorFreeSlots(fieldSlots, playerCount) {
   const filled = (fieldSlots ?? []).filter(s => s.playerId)
   if (filled.length) {
     return filled.map((slot, i) => ({
@@ -42,8 +46,10 @@ export function buildOpponentSlots({ ageGroup, formationId, fieldSlots, playerCo
       number: i + 1,
     }))
   }
+  return spreadFallbackSlots(playerCount ?? 11)
+}
 
-  const count = playerCount ?? 11
+function spreadFallbackSlots(count) {
   const rows = Math.ceil(Math.sqrt(count))
   const cols = Math.ceil(count / rows)
   const xStep = 100 / (cols + 1)
@@ -66,8 +72,66 @@ export function buildOpponentSlots({ ageGroup, formationId, fieldSlots, playerCo
   return slots
 }
 
-export function getCounterFormationLabel(ageGroup, formationId) {
+function getFormation(ageGroup, formationId) {
+  const formations = FORMATIONS[ageGroup] ?? []
+  return formationId ? formations.find(f => f.id === formationId) ?? null : null
+}
+
+function getOptimalFormation(ageGroup, formationId) {
   const formations = FORMATIONS[ageGroup] ?? []
   const counterId = formationId ? (COUNTER_MAP[formationId] ?? formations[0]?.id) : formations[0]?.id
-  return formations.find(f => f.id === counterId)?.label ?? null
+  return formations.find(f => f.id === counterId) ?? formations[0] ?? null
+}
+
+function getAlternativeFormation(ageGroup, formationId) {
+  const formations = FORMATIONS[ageGroup] ?? []
+  const optimal = getOptimalFormation(ageGroup, formationId)
+  const alternative = formations.find(f => f.id !== formationId && f.id !== optimal?.id)
+    ?? formations.find(f => f.id !== formationId)
+    ?? formations[0]
+  return alternative ?? null
+}
+
+export function buildMirrorOpponentSlots({ ageGroup, formationId, fieldSlots, playerCount }) {
+  const own = getFormation(ageGroup, formationId)
+  if (own) return slotsFromFormation(own)
+  return mirrorFreeSlots(fieldSlots, playerCount ?? 11)
+}
+
+export function buildOptimalOpponentSlots({ ageGroup, formationId, fieldSlots, playerCount }) {
+  const counter = getOptimalFormation(ageGroup, formationId)
+  if (counter) return slotsFromFormation(counter)
+
+  const filled = (fieldSlots ?? []).filter(s => s.playerId)
+  if (filled.length) return mirrorFreeSlots(fieldSlots)
+  return spreadFallbackSlots(playerCount ?? 11)
+}
+
+export function buildAlternativeOpponentSlots({ ageGroup, formationId, fieldSlots, playerCount }) {
+  const alternative = getAlternativeFormation(ageGroup, formationId)
+  if (alternative) return slotsFromFormation(alternative)
+
+  return buildOptimalOpponentSlots({ ageGroup, formationId, fieldSlots, playerCount })
+}
+
+export function buildOpponentSlotsForMode(mode, params) {
+  switch (mode) {
+    case 'mirror':
+      return buildMirrorOpponentSlots(params)
+    case 'optimal':
+      return buildOptimalOpponentSlots(params)
+    case 'alternative':
+      return buildAlternativeOpponentSlots(params)
+    default:
+      return []
+  }
+}
+
+/** @deprecated Use buildOptimalOpponentSlots — kept for compatibility */
+export function buildOpponentSlots(params) {
+  return buildOptimalOpponentSlots(params)
+}
+
+export function getCounterFormationLabel(ageGroup, formationId) {
+  return getOptimalFormation(ageGroup, formationId)?.label ?? null
 }

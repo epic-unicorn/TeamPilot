@@ -5,7 +5,7 @@
         <div class="players-header-text">
           <h1 class="players-title md-title-sm">Spelers lijst</h1>
           <p class="md-label-sm players-meta">
-            {{ activeTeam?.name }} · {{ players.length }} speler{{ players.length !== 1 ? 's' : '' }}
+            {{ players.length }} speler{{ players.length !== 1 ? 's' : '' }}
             <span v-if="ageGroupConfig"> (min {{ ageGroupConfig.players }})</span>
           </p>
         </div>
@@ -385,14 +385,24 @@ function confirmQuickFill() {
     top: 0;
     z-index: 20;
     margin: calc(-1 * var(--sp-3)) calc(-1 * var(--sp-3)) 0;
-    padding: var(--sp-2) var(--sp-3);
+    padding: var(--sp-3) var(--sp-3);
     background: var(--md-surface);
     border-bottom: 1px solid var(--md-outline-variant);
   }
 
+  .players-header {
+    min-height: 48px;
+  }
+
   .players-title {
-    font-size: 14px;
+    font-size: 1rem;
     font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .players-meta {
+    font-size: 12px;
+    margin-top: 4px;
   }
 
   .player-list,

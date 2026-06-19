@@ -341,6 +341,7 @@ function shareTeam() {
   display: flex;
   flex-direction: column;
   gap: var(--sp-5);
+  --dashboard-card-height: calc(var(--sp-3) * 2 + 40px);
 }
 
 .dashboard-settings {
@@ -531,18 +532,20 @@ function shareTeam() {
 .action-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
+  grid-auto-rows: 1fr;
   gap: var(--sp-2);
 }
 
 .action-tile {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--sp-2);
-  padding: var(--sp-4);
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
   text-decoration: none;
   color: var(--md-on-surface);
-  min-height: 88px;
+  min-height: var(--dashboard-card-height);
+  box-sizing: border-box;
   transition: box-shadow var(--md-duration-short), transform var(--md-duration-short);
 }
 
@@ -558,16 +561,25 @@ function shareTeam() {
 
 .action-hint {
   color: var(--md-primary);
-  margin-top: auto;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .action-icon {
-  font-size: 28px;
+  font-size: 24px;
   color: var(--md-primary);
+  flex-shrink: 0;
+}
+
+.action-tile .md-label-lg {
+  flex: 1;
+  min-width: 0;
 }
 
 .share-card {
   padding: var(--sp-3) var(--sp-4);
+  min-height: var(--dashboard-card-height);
+  box-sizing: border-box;
 }
 
 .share-row {
@@ -715,6 +727,8 @@ function shareTeam() {
   align-items: center;
   gap: var(--sp-2);
   padding: var(--sp-3) var(--sp-4);
+  min-height: var(--dashboard-card-height);
+  box-sizing: border-box;
   text-decoration: none;
   color: var(--md-on-surface);
   transition: box-shadow var(--md-duration-short);
@@ -745,10 +759,6 @@ function shareTeam() {
   .action-grid {
     grid-template-columns: repeat(4, 1fr);
     gap: var(--sp-3);
-  }
-
-  .action-tile {
-    min-height: 100px;
   }
 
   .dashboard-body-grid {

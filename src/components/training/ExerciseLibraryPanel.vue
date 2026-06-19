@@ -10,6 +10,7 @@
         <p class="md-label-md session-strip-title">
           <template v-if="sessionBlocks.length">
             Jouw training · {{ sessionBlocks.length }} {{ sessionBlocks.length === 1 ? 'oefening' : 'oefeningen' }}
+            · {{ totalMin }} min
           </template>
           <template v-else>
             Nog geen oefeningen in je training
@@ -25,15 +26,32 @@
           <span class="material-symbols-rounded" aria-hidden="true">arrow_forward</span>
         </button>
       </div>
-      <div v-if="sessionBlocks.length" class="session-strip-list" role="list" aria-label="Huidige training">
+      <div
+        v-if="sessionBlocks.length"
+        ref="sessionStripListRef"
+        class="session-strip-list"
+        role="list"
+        aria-label="Huidige training"
+      >
         <span
           v-for="(block, i) in sessionBlocks"
           :key="block.uid"
           class="session-strip-chip md-label-sm"
+          :class="{ 'is-new': block.uid === highlightUid }"
+          :data-block-uid="block.uid"
           role="listitem"
         >
           <span class="chip-num">{{ i + 1 }}</span>
-          {{ getExerciseTitle(block.exercise) }}
+          <span class="chip-label">{{ getExerciseTitle(block.exercise) }}</span>
+          <span class="chip-duration md-label-sm">{{ block.durationMin }} min</span>
+          <button
+            type="button"
+            class="chip-remove btn-icon"
+            :aria-label="`Verwijder ${getExerciseTitle(block.exercise)}`"
+            @click="$emit('remove-block', block.uid)"
+          >
+            <span class="material-symbols-rounded">close</span>
+          </button>
         </span>
       </div>
       <p v-else class="md-body-sm session-strip-hint">
@@ -41,71 +59,74 @@
       </p>
     </div>
 
-    <div class="section-head">
-      <p class="md-title-sm">Bibliotheek</p>
-      <button type="button" class="btn btn-tonal section-action" @click="$emit('create-custom')">
-        <span class="material-symbols-rounded" style="font-size:18px">draw</span>
-        Eigen oefening
-      </button>
-    </div>
+    <div class="library-main">
+      <div class="section-head">
+        <p class="md-title-sm">Bibliotheek</p>
+      </div>
 
-    <ExerciseLibraryFilters
-      :query="query"
-      :category="category"
-      :suitable-only="suitableOnly"
-      :result-count="exercises.length"
-      @update:query="$emit('update:query', $event)"
-      @update:category="$emit('update:category', $event)"
-      @update:suitable-only="$emit('update:suitableOnly', $event)"
-      @reset="$emit('reset-filters')"
-    />
+      <ExerciseLibraryFilters
+        :query="query"
+        :category="category"
+        :suitable-only="suitableOnly"
+        :result-count="exercises.length"
+        @update:query="$emit('update:query', $event)"
+        @update:category="$emit('update:category', $event)"
+        @update:suitable-only="$emit('update:suitableOnly', $event)"
+        @reset="$emit('reset-filters')"
+      />
 
-    <div v-if="!exercises.length" class="library-empty md-body-sm">
-      Geen oefeningen gevonden — pas je zoekterm of filters aan.
-    </div>
-    <div v-else class="manual-list">
-      <div v-for="ex in exercises" :key="ex.id" class="manual-item">
-        <button type="button" class="manual-item-main" @click="$emit('preview', ex)">
-          <div class="manual-item-body">
-            <p class="md-label-lg manual-title">
-              <span v-if="isCustomExercise(ex)" class="custom-ex-badge" title="Eigen oefening">
-                <span class="material-symbols-rounded" aria-hidden="true">draw</span>
-              </span>
-              <span class="manual-title-text">{{ getExerciseTitle(ex) }}</span>
-            </p>
-            <p class="md-body-sm manual-meta">
-              {{ categoryLabel(ex.category) }} · {{ ex.durationMin }} min · {{ playerRangeLabel(ex) }}
-            </p>
+      <div v-if="!exercises.length" class="library-empty md-body-sm">
+        Geen oefeningen gevonden — pas je zoekterm of filters aan.
+      </div>
+      <div v-else class="manual-list">
+        <div v-for="ex in exercises" :key="ex.id" class="manual-item">
+          <button type="button" class="manual-item-main" @click="$emit('preview', ex)">
+            <div class="manual-item-body">
+              <p class="md-label-lg manual-title">
+                <span v-if="isCustomExercise(ex)" class="custom-ex-badge" title="Eigen oefening">
+                  <span class="material-symbols-rounded" aria-hidden="true">draw</span>
+                </span>
+                <span class="manual-title-text">{{ getExerciseTitle(ex) }}</span>
+              </p>
+              <p class="md-body-sm manual-meta">
+                {{ categoryLabel(ex.category) }} · {{ ex.durationMin }} min · {{ playerRangeLabel(ex) }}
+              </p>
+            </div>
+          </button>
+          <div class="manual-item-actions">
+            <button
+              type="button"
+              class="btn-icon manual-info"
+              aria-label="Details bekijken"
+              title="Details bekijken"
+              @click="$emit('preview', ex)"
+            >
+              <span class="material-symbols-rounded">info</span>
+            </button>
+            <button
+              type="button"
+              class="btn-icon manual-add"
+              :aria-label="`Toevoegen als oefening ${nextPosition}`"
+              :title="`Toevoegen als #${nextPosition}`"
+              @click="$emit('add', ex)"
+            >
+              <span class="material-symbols-rounded">add</span>
+              <span class="add-pos md-label-sm">#{{ nextPosition }}</span>
+            </button>
           </div>
-        </button>
-        <div class="manual-item-actions">
-          <button
-            type="button"
-            class="btn-icon manual-info"
-            aria-label="Details bekijken"
-            title="Details bekijken"
-            @click="$emit('preview', ex)"
-          >
-            <span class="material-symbols-rounded">info</span>
-          </button>
-          <button
-            type="button"
-            class="btn-icon manual-add"
-            :aria-label="`Toevoegen als oefening ${nextPosition}`"
-            :title="`Toevoegen als #${nextPosition}`"
-            @click="$emit('add', ex)"
-          >
-            <span class="material-symbols-rounded">add</span>
-            <span class="add-pos md-label-sm">#{{ nextPosition }}</span>
-          </button>
         </div>
       </div>
     </div>
+
+    <button type="button" class="btn btn-tonal library-custom-btn" @click="$emit('create-custom')">
+      <span class="material-symbols-rounded" style="font-size:18px">draw</span>
+      Creëer eigen oefening
+    </button>
   </section>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch, nextTick } from 'vue'
 import { EXERCISE_CATEGORIES } from '@/data/exercises'
 import ExerciseLibraryFilters from '@/components/training/ExerciseLibraryFilters.vue'
 import { getExerciseTitle, isCustomExercise, playerRangeLabel } from '@/utils/exerciseText'
@@ -113,6 +134,7 @@ import { getExerciseTitle, isCustomExercise, playerRangeLabel } from '@/utils/ex
 const props = defineProps({
   exercises: { type: Array, required: true },
   sessionBlocks: { type: Array, default: () => [] },
+  highlightUid: { type: String, default: null },
   query: { type: String, default: '' },
   category: { type: String, default: '' },
   suitableOnly: { type: Boolean, default: true },
@@ -124,6 +146,7 @@ defineEmits([
   'add',
   'go-session',
   'create-custom',
+  'remove-block',
   'update:query',
   'update:category',
   'update:suitableOnly',
@@ -131,6 +154,19 @@ defineEmits([
 ])
 
 const nextPosition = computed(() => props.sessionBlocks.length + 1)
+const totalMin = computed(() =>
+  props.sessionBlocks.reduce((sum, block) => sum + block.durationMin, 0)
+)
+const sessionStripListRef = ref(null)
+
+watch(() => props.highlightUid, async (uid) => {
+  if (!uid) return
+  await nextTick()
+  const list = sessionStripListRef.value
+  if (!list) return
+  const chip = list.querySelector(`[data-block-uid="${uid}"]`)
+  chip?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+})
 
 function categoryLabel(id) {
   return EXERCISE_CATEGORIES.find(c => c.id === id)?.label ?? id
@@ -140,28 +176,29 @@ function categoryLabel(id) {
 <style scoped>
 .library-panel {
   padding: var(--sp-3);
-}
-
-.library-panel--sidebar {
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+.library-panel--sidebar {
   height: 100%;
 }
 
-.library-panel--sidebar .manual-list {
+.library-main {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
-  max-height: none;
 }
 
-.library-panel--sidebar .manual-title-text {
-  white-space: normal;
-  overflow: visible;
-  text-overflow: unset;
+.library-panel--sidebar .library-main {
+  flex: 1;
+  min-height: 0;
 }
 
 .session-strip {
+  flex-shrink: 0;
   margin-bottom: var(--sp-3);
   padding: var(--sp-3);
   border-radius: var(--md-shape-md);
@@ -205,26 +242,32 @@ function categoryLabel(id) {
 
 .session-strip-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: var(--sp-1);
   margin-top: var(--sp-2);
-  max-height: 4.5rem;
+  max-height: 7rem;
   overflow-y: auto;
 }
 
 .session-strip-chip {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 4px;
-  max-width: 100%;
-  padding: 2px 8px 2px 4px;
-  border-radius: var(--md-shape-full);
+  gap: 6px;
+  width: 100%;
+  padding: 4px 4px 4px 6px;
+  border-radius: var(--md-shape-md);
   background: var(--md-surface);
   border: 1px solid var(--md-outline-variant);
   color: var(--md-on-surface);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.session-strip-chip.is-new {
+  animation: chip-highlight 2s ease-out;
+}
+
+@keyframes chip-highlight {
+  0%, 40% { background: color-mix(in srgb, var(--md-primary) 16%, var(--md-surface)); }
+  100% { background: var(--md-surface); }
 }
 
 .chip-num {
@@ -241,6 +284,32 @@ function categoryLabel(id) {
   flex-shrink: 0;
 }
 
+.chip-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip-duration {
+  flex-shrink: 0;
+  color: var(--md-on-surface-variant);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.chip-remove {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  color: var(--md-on-surface-variant);
+}
+
+.chip-remove .material-symbols-rounded {
+  font-size: 18px;
+}
+
 .session-strip-hint {
   margin: var(--sp-1) 0 0;
   color: var(--md-on-surface-variant);
@@ -252,10 +321,6 @@ function categoryLabel(id) {
   justify-content: space-between;
   gap: var(--sp-2);
   margin-bottom: var(--sp-2);
-}
-
-.section-action {
-  height: 36px;
   flex-shrink: 0;
 }
 
@@ -269,8 +334,13 @@ function categoryLabel(id) {
   display: flex;
   flex-direction: column;
   gap: var(--sp-1);
-  max-height: min(520px, 58dvh);
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+}
+
+.library-panel--sidebar .manual-list {
+  max-height: none;
 }
 
 .manual-item {
@@ -278,6 +348,7 @@ function categoryLabel(id) {
   align-items: center;
   gap: var(--sp-1);
   border-radius: var(--md-shape-md);
+  flex-shrink: 0;
 }
 
 .manual-item-main {
@@ -343,6 +414,12 @@ function categoryLabel(id) {
   white-space: nowrap;
 }
 
+.library-panel--sidebar .manual-title-text {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+}
+
 .manual-meta {
   margin: 2px 0 0;
   color: var(--md-on-surface-variant);
@@ -362,5 +439,11 @@ function categoryLabel(id) {
 
 .custom-ex-badge .material-symbols-rounded {
   font-size: 15px;
+}
+
+.library-custom-btn {
+  flex-shrink: 0;
+  width: 100%;
+  margin-top: var(--sp-3);
 }
 </style>

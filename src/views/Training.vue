@@ -23,7 +23,7 @@
         <aside v-if="isDesktop" class="training-col-left">
           <TrainingSettingsPanel
             variant="sidebar"
-            :show-present="false"
+            :show-present="true"
             :show-config="true"
             :show-cycle-info="false"
             :roster="roster"
@@ -35,6 +35,8 @@
             :cycle-week="syncedCycleWeek"
             :cycle-theme-label="cycleThemeLabel"
             :training-types="TRAINING_TYPES"
+            @toggle-all="toggleAll"
+            @toggle-player="togglePlayer"
             @update:training-type="trainingType = $event"
             @update:duration-min="durationMin = +$event || 60"
           />
@@ -56,13 +58,36 @@
         >
           <div class="session-main">
               <div class="session-start card card-elevated">
-                <div class="session-start-header">
+                <div class="session-start-head">
                   <h2 class="md-title-sm session-start-title">Start je training</h2>
-                  <p class="md-label-sm session-start-theme">
-                    <span class="material-symbols-rounded session-start-theme-icon" aria-hidden="true">{{ cycleThemeIcon }}</span>
-                    Week {{ syncedCycleWeek }}/4 · {{ cycleThemeLabel }}
-                  </p>
+                  <div class="session-start-actions">
+                    <button
+                      type="button"
+                      class="btn btn-tonal session-head-btn"
+                      title="Kies opgeslagen"
+                      aria-label="Kies opgeslagen"
+                      @click="showPickSaved = true"
+                    >
+                      <span class="material-symbols-rounded" aria-hidden="true">bookmark</span>
+                      <span class="session-head-btn-label">Kies opgeslagen</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-filled session-head-btn"
+                      title="Genereer training"
+                      aria-label="Genereer training"
+                      :disabled="!presentPlayers.length"
+                      @click="generate"
+                    >
+                      <span class="material-symbols-rounded" aria-hidden="true">auto_fix_high</span>
+                      <span class="session-head-btn-label">Genereer</span>
+                    </button>
+                  </div>
                 </div>
+                <p class="md-label-sm session-start-theme">
+                  <span class="material-symbols-rounded session-start-theme-icon" aria-hidden="true">{{ cycleThemeIcon }}</span>
+                  Week {{ syncedCycleWeek }}/4 · {{ cycleThemeLabel }}
+                </p>
 
                 <TrainingSettingsPanel
                   v-if="!isDesktop"
@@ -107,24 +132,6 @@
                   @update:duration-min="durationMin = +$event || 60"
                 />
 
-                <div v-if="!isDesktop" class="session-start-divider" aria-hidden="true" />
-
-                <div class="session-start-actions">
-                  <button type="button" class="btn btn-tonal session-start-btn" @click="showPickSaved = true">
-                    <span class="material-symbols-rounded" aria-hidden="true">bookmark</span>
-                    Kies opgeslagen
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-filled session-start-btn"
-                    :disabled="!presentPlayers.length"
-                    @click="generate"
-                  >
-                    <span class="material-symbols-rounded" aria-hidden="true">auto_fix_high</span>
-                    Genereer
-                  </button>
-                </div>
-
                 <p v-if="activeSavedTrainingName" class="md-label-sm session-source">
                   Gebaseerd op: {{ activeSavedTrainingName }}
                 </p>
@@ -132,35 +139,50 @@
 
               <section v-if="sessionBlocks.length" class="card card-elevated session-card">
               <header class="session-card-head">
-                <div class="session-card-intro">
+                <div class="session-card-top">
                   <h2 class="md-title-sm session-card-title">Trainingsoverzicht</h2>
-                  <p
-                    class="md-label-sm session-card-meta"
-                    :class="{ 'session-card-meta--warn': sessionTiming.totalMin !== durationMin }"
-                  >
-                    {{ sessionBlocks.length }}
-                    {{ sessionBlocks.length === 1 ? 'oefening' : 'oefeningen' }}
-                    · {{ sessionTiming.totalMin }}/{{ durationMin }} min
-                  </p>
+                  <div class="session-card-toolbar">
+                    <button
+                      v-if="activeSavedTrainingId"
+                      type="button"
+                      class="btn btn-outlined session-head-btn"
+                      title="Bijwerken"
+                      aria-label="Bijwerken"
+                      @click="updateActiveSaved"
+                    >
+                      <span class="material-symbols-rounded" aria-hidden="true">save</span>
+                      <span class="session-head-btn-label">Bijwerken</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-tonal session-head-btn"
+                      title="Opslaan"
+                      aria-label="Opslaan"
+                      @click="openSaveDialog()"
+                    >
+                      <span class="material-symbols-rounded" aria-hidden="true">bookmark_add</span>
+                      <span class="session-head-btn-label">Opslaan</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-tonal session-head-btn"
+                      title="Deel sessie"
+                      aria-label="Deel sessie"
+                      @click="shareTraining"
+                    >
+                      <span class="material-symbols-rounded" aria-hidden="true">share</span>
+                      <span class="session-head-btn-label">Deel sessie</span>
+                    </button>
+                  </div>
                 </div>
-                <div class="session-card-toolbar">
-                  <button
-                    v-if="activeSavedTrainingId"
-                    type="button"
-                    class="btn btn-outlined toolbar-btn"
-                    @click="updateActiveSaved"
-                  >
-                    Bijwerken
-                  </button>
-                  <button type="button" class="btn btn-tonal toolbar-btn" @click="openSaveDialog()">
-                    <span class="material-symbols-rounded toolbar-icon" aria-hidden="true">bookmark_add</span>
-                    <span class="toolbar-label">Opslaan</span>
-                  </button>
-                  <button type="button" class="btn btn-tonal toolbar-btn" @click="shareTraining">
-                    <span class="material-symbols-rounded toolbar-icon" aria-hidden="true">share</span>
-                    <span class="toolbar-label">Deel sessie</span>
-                  </button>
-                </div>
+                <p
+                  class="md-label-sm session-card-meta"
+                  :class="{ 'session-card-meta--warn': sessionTiming.totalMin !== durationMin }"
+                >
+                  {{ sessionBlocks.length }}
+                  {{ sessionBlocks.length === 1 ? 'oefening' : 'oefeningen' }}
+                  · {{ sessionTiming.totalMin }}/{{ durationMin }} min
+                </p>
               </header>
 
               <div class="session-list">
@@ -257,6 +279,7 @@
           <ExerciseLibraryPanel
             :exercises="filteredExercises"
             :session-blocks="sessionBlocks"
+            :highlight-uid="highlightUid"
             :hide-session-strip="isDesktop"
             v-model:query="libraryQuery"
             v-model:category="libraryCategory"
@@ -264,6 +287,7 @@
             @preview="openPreview"
             @add="addManualExercise"
             @go-session="activeTab = 'session'"
+            @remove-block="removeBlockByUid"
             @create-custom="showCustomDialog = true"
             @reset-filters="resetLibraryFilters"
           />
@@ -283,26 +307,6 @@
             @delete="deleteSavedRecipe"
           />
         </div>
-
-        <aside v-if="isDesktop" class="training-col-sidebar">
-          <TrainingSettingsPanel
-            variant="sidebar"
-            :show-present="true"
-            :show-config="false"
-            :show-cycle-info="false"
-            :roster="roster"
-            :present-ids="presentIds"
-            :all-present="allPresent"
-            :balance="balance"
-            :training-type="trainingType"
-            :duration-min="durationMin"
-            :cycle-week="syncedCycleWeek"
-            :cycle-theme-label="cycleThemeLabel"
-            :training-types="TRAINING_TYPES"
-            @toggle-all="toggleAll"
-            @toggle-player="togglePlayer"
-          />
-        </aside>
       </div>
     </template>
 
@@ -733,6 +737,10 @@ function removeBlock(index) {
   sessionBlocks.value = sessionBlocks.value.filter((_, i) => i !== index)
 }
 
+function removeBlockByUid(uid) {
+  sessionBlocks.value = sessionBlocks.value.filter(b => b.uid !== uid)
+}
+
 const allPresent = computed(() => presentIds.value.size === roster.value.length)
 
 const presentPlayers = computed(() =>
@@ -953,7 +961,6 @@ function addManualExercise(ex) {
   const position = sessionBlocks.value.length + 1
   const block = makeBlock(ex, ex.durationMin)
   sessionBlocks.value = [...sessionBlocks.value, block]
-  activeTab.value = 'session'
   highlightUid.value = block.uid
   if (highlightTimer) clearTimeout(highlightTimer)
   highlightTimer = setTimeout(() => { highlightUid.value = null }, 2000)
@@ -1013,21 +1020,55 @@ function addFromPreview(ex) {
     padding-top: 0;
     display: flex;
     flex-direction: column;
-    gap: var(--sp-5);
+    gap: 0;
+    height: calc(100dvh - var(--top-bar-height) - var(--nav-height));
+    overflow: hidden;
   }
 
   .training-tabs-shell {
     position: sticky;
     top: 0;
     z-index: 20;
+    flex-shrink: 0;
     margin: calc(-1 * var(--sp-3)) calc(-1 * var(--sp-3)) 0;
-    padding: var(--sp-2) var(--sp-3);
+    padding: 0 var(--sp-3) var(--sp-2);
     background: var(--md-surface);
     border-bottom: 1px solid var(--md-outline-variant);
   }
 
   .training-tabs-shell :deep(.training-tabs) {
     margin-bottom: 0;
+    border-bottom: none;
+  }
+
+  .training-body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding-top: var(--sp-5);
+  }
+
+  .training-col-session.tab-panel,
+  .training-body > .tab-panel {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .training-col-library.tab-panel {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .training-col-library :deep(.library-panel) {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
   }
 }
 
@@ -1068,22 +1109,26 @@ function addFromPreview(ex) {
 .session-card-head {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
+  gap: var(--sp-1);
   margin-bottom: var(--sp-3);
   padding-bottom: var(--sp-3);
   border-bottom: 1px solid var(--md-outline-variant);
 }
 
-.session-card-intro {
+.session-card-top,
+.session-start-head {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
   min-width: 0;
 }
 
 .session-card-title {
   margin: 0;
   line-height: 1.3;
+  flex: 1;
+  min-width: 0;
 }
 
 .session-card-meta {
@@ -1095,66 +1140,48 @@ function addFromPreview(ex) {
   color: var(--md-tertiary);
 }
 
-.session-card-toolbar {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
-  gap: var(--sp-2);
-  width: 100%;
+.session-card-toolbar,
+.session-start-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--sp-1);
 }
 
-.toolbar-btn {
+.session-head-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--sp-1);
-  min-height: 40px;
-  padding: 0 var(--sp-2);
+  height: 36px;
+  min-height: 36px;
+  padding: 0 var(--sp-3);
   font-size: 13px;
 }
 
-.toolbar-icon {
+.session-head-btn .material-symbols-rounded {
   font-size: 18px;
   flex-shrink: 0;
 }
 
-.toolbar-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-@media (min-width: 720px) {
-  .session-card-head {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--sp-4);
-  }
-
-  .session-card-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    width: auto;
-    flex-shrink: 0;
-  }
-
-  .toolbar-btn {
-    min-height: 36px;
-    padding: 0 var(--sp-3);
-    font-size: inherit;
-  }
-}
-
-@media (max-width: 380px) {
-  .toolbar-btn:has(.toolbar-icon) .toolbar-label {
+@media (max-width: 899px) {
+  .session-head-btn-label {
     display: none;
   }
 
-  .toolbar-btn:has(.toolbar-icon) {
-    padding: 0;
+  .session-head-btn {
+    width: 40px;
     min-width: 40px;
+    padding: 0;
+  }
+}
+
+@media (min-width: 900px) {
+  .session-head-btn {
+    height: 40px;
+    min-height: 40px;
+    padding: 0 var(--sp-4);
+    font-size: inherit;
   }
 }
 
@@ -1162,12 +1189,11 @@ function addFromPreview(ex) {
   padding: var(--sp-4);
 }
 
-.session-start-header {
-  margin-bottom: var(--sp-3);
-}
-
 .session-start-title {
   margin: 0;
+  line-height: 1.3;
+  flex: 1;
+  min-width: 0;
 }
 
 .session-start-theme {
@@ -1175,33 +1201,13 @@ function addFromPreview(ex) {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-1);
-  margin: var(--sp-1) 0 0;
+  margin: var(--sp-1) 0 var(--sp-3);
   color: var(--md-on-surface-variant);
 }
 
 .session-start-theme-icon {
   font-size: 16px;
   color: var(--md-primary);
-}
-
-.session-start-divider {
-  height: 1px;
-  margin: var(--sp-3) 0;
-  background: var(--md-outline-variant);
-}
-
-.session-start-label {
-  margin: 0 0 var(--sp-2);
-}
-
-.session-start-actions {
-  display: flex;
-  gap: var(--sp-2);
-}
-
-.session-start-btn {
-  flex: 1;
-  min-height: 44px;
 }
 
 .session-source {
@@ -1447,9 +1453,11 @@ function addFromPreview(ex) {
 
   .training-body {
     display: grid;
-    grid-template-columns: minmax(260px, 300px) minmax(0, 1fr) minmax(0, 1fr) minmax(220px, 280px);
+    grid-template-columns: minmax(260px, 300px) minmax(0, 1fr) minmax(0, 1fr);
     gap: var(--sp-4);
     align-items: stretch;
+    flex: 1;
+    min-height: 0;
   }
 
   .training-col-left {
@@ -1481,24 +1489,17 @@ function addFromPreview(ex) {
     flex: 1;
     min-height: 0;
   }
-
-  .training-col-sidebar {
-    min-height: 0;
-    overflow-y: auto;
-    align-self: start;
-    max-height: 100%;
-  }
 }
 
 @media (min-width: 1024px) {
   .training-body {
-    grid-template-columns: minmax(300px, 340px) minmax(0, 1fr) minmax(0, 1fr) minmax(260px, 300px);
+    grid-template-columns: minmax(280px, 320px) minmax(0, 1fr) minmax(0, 1fr);
   }
 }
 
 @media (min-width: 1280px) {
   .training-body {
-    grid-template-columns: minmax(320px, 360px) minmax(0, 1fr) minmax(0, 1fr) minmax(280px, 320px);
+    grid-template-columns: minmax(300px, 340px) minmax(0, 1.1fr) minmax(0, 1fr);
   }
 }
 </style>

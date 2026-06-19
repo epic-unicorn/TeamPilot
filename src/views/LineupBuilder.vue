@@ -79,62 +79,55 @@
       </div>
       </div>
 
-      <!-- Bank & weergave (mobile, onderkant sticky header) -->
+      <!-- Bank, formatie & weergave (mobile, onderkant sticky header) -->
       <div
         v-if="!isDesktop"
         class="builder-header-controls"
         ref="formationControlsRef"
       >
         <div class="builder-header-controls-bar">
-          <div class="controls-options controls-options--summary" @click.stop>
-            <div class="bench-anchor" ref="benchAnchorRef">
-              <button
-                class="chip chip-toggle"
-                :class="{ active: showBench, 'drag-drop': isFieldDragging }"
-                @click="toggleBench"
-                data-bench-button
-                title="Bank"
-              >
-                <span class="material-symbols-rounded" style="font-size:16px">group</span>
-                <span class="chip-text">Bank</span>
-                <span v-if="benchPlayers.length" class="chip-badge">{{ benchPlayers.length }}</span>
-              </button>
-            </div>
-            <button class="chip chip-toggle" :class="{ active: showOpponent }" @click="showOpponent = !showOpponent" title="Tegenstander">
-              <span class="material-symbols-rounded" style="font-size:16px">shield</span>
-              <span class="chip-text">Tegenstander</span>
-            </button>
-            <button class="chip chip-toggle" @click="flipped = !flipped" :title="flipped ? 'Aanval omhoog' : 'Keeper omlaag'">
-              <span class="material-symbols-rounded" style="font-size:16px">swap_vert</span>
-              <span class="chip-text">Omdraaien</span>
+          <div class="bench-anchor" ref="benchAnchorRef">
+            <button
+              class="chip chip-toggle"
+              :class="{ active: showBench, 'drag-drop': isFieldDragging }"
+              @click="toggleBench"
+              data-bench-button
+              title="Bank"
+            >
+              <span class="material-symbols-rounded" style="font-size:16px">group</span>
+              <span class="chip-text">Bank</span>
+              <span v-if="benchPlayers.length" class="chip-badge">{{ benchPlayers.length }}</span>
             </button>
           </div>
-          <button
-            type="button"
-            class="controls-expand-btn"
-            :aria-expanded="controlsExpanded"
-            aria-label="Formatie types"
-            @click.stop="toggleControlsExpanded"
+          <label class="sr-only" for="formation-select">Formatie types</label>
+          <select
+            id="formation-select"
+            class="formation-dropdown formation-dropdown--inline"
+            :value="selectedFormationId || ''"
+            @change="onFormationChange"
           >
-            <span class="material-symbols-rounded controls-summary-chevron" :class="{ open: controlsExpanded }">expand_more</span>
+            <option value="">Vrij</option>
+            <option v-for="f in availableFormations" :key="f.id" :value="f.id">{{ f.label }}</option>
+          </select>
+          <button
+            class="chip chip-toggle chip-toggle--icon"
+            :class="{ active: isOpponentVisible, [`opponent-mode-${opponentMode}`]: isOpponentVisible }"
+            @click="cycleOpponentMode"
+            :title="opponentModeTitle"
+            :aria-label="opponentModeTitle"
+          >
+            <span class="material-symbols-rounded" style="font-size:18px">{{ opponentModeIcon }}</span>
+          </button>
+          <button
+            class="chip chip-toggle chip-toggle--icon"
+            :class="{ active: flipped }"
+            @click="flipped = !flipped"
+            :title="flipped ? 'Aanval omhoog' : 'Keeper omlaag'"
+            aria-label="Omdraaien"
+          >
+            <span class="material-symbols-rounded" style="font-size:18px">swap_vert</span>
           </button>
         </div>
-
-        <Transition name="bench-drop">
-          <div v-if="controlsExpanded" class="builder-header-controls-expand">
-            <p class="md-title-sm controls-title">Formatie types</p>
-            <label class="sr-only" for="formation-select">Formatie types</label>
-            <select
-              id="formation-select"
-              class="formation-dropdown"
-              :value="selectedFormationId || ''"
-              @change="onFormationChange"
-            >
-              <option value="">Vrij</option>
-              <option v-for="f in availableFormations" :key="f.id" :value="f.id">{{ f.label }}</option>
-            </select>
-          </div>
-        </Transition>
 
         <Transition name="bench-drop">
           <div v-if="showBench" class="bench-dropdown bench-dropdown--overlay" :class="{ 'bench-dragging': isBenchDragging }">
@@ -152,7 +145,7 @@
     </div>
 
     <div
-      v-if="!isDesktop && (controlsExpanded || showBench)"
+      v-if="!isDesktop && showBench"
       class="controls-backdrop"
       @click="closeMobileOverlays"
     />
@@ -180,7 +173,7 @@
           :slots="fieldSlots"
           :players="playersMap"
           :team-shirt="activeTeam?.shirt"
-          :opponent-slots="showOpponent ? opponentSlots : []"
+          :opponent-slots="isOpponentVisible ? opponentSlots : []"
           :opponent-shirt="opponentShirt"
           :flipped="flipped"
           export-id="field-export-area"
@@ -195,13 +188,23 @@
         <div class="sidebar-card card card-elevated">
           <p class="md-title-sm controls-title">Weergave</p>
           <div class="controls-options controls-options--sidebar">
-            <button class="chip chip-toggle" :class="{ active: showOpponent }" @click="showOpponent = !showOpponent" title="Tegenstander">
-              <span class="material-symbols-rounded" style="font-size:16px">shield</span>
-              <span class="chip-text">Tegenstander</span>
+            <button
+              class="chip chip-toggle chip-toggle--icon chip-toggle--sidebar"
+              :class="{ active: isOpponentVisible, [`opponent-mode-${opponentMode}`]: isOpponentVisible }"
+              @click="cycleOpponentMode"
+              :title="opponentModeTitle"
+              :aria-label="opponentModeTitle"
+            >
+              <span class="material-symbols-rounded" style="font-size:18px">{{ opponentModeIcon }}</span>
             </button>
-            <button class="chip chip-toggle" @click="flipped = !flipped" :title="flipped ? 'Aanval omhoog' : 'Keeper omlaag'">
-              <span class="material-symbols-rounded" style="font-size:16px">swap_vert</span>
-              <span class="chip-text">Omdraaien</span>
+            <button
+              class="chip chip-toggle chip-toggle--icon chip-toggle--sidebar"
+              :class="{ active: flipped }"
+              @click="flipped = !flipped"
+              :title="flipped ? 'Aanval omhoog' : 'Keeper omlaag'"
+              aria-label="Omdraaien"
+            >
+              <span class="material-symbols-rounded" style="font-size:18px">swap_vert</span>
             </button>
           </div>
         </div>
@@ -375,7 +378,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { useTeamStore } from '@/stores/teamStore'
 import { FORMATIONS, FORMATION_Y } from '@/data/formations'
 import { encodeBundle, encodeLineupOnly } from '@/utils/lineupShare'
-import { buildOpponentSlots } from '@/utils/opponentFormation'
+import {
+  OPPONENT_MODES,
+  buildOpponentSlotsForMode,
+  getOpponentModeLabel,
+} from '@/utils/opponentFormation'
 import { getOpponentShirt } from '@/utils/opponentShirt'
 import FootballField from '@/components/field/FootballField.vue'
 import BenchPanel    from '@/components/field/BenchPanel.vue'
@@ -408,21 +415,35 @@ const switcherRef  = ref(null)
 const showBench    = ref(false)
 const benchAnchorRef = ref(null)
 const formationControlsRef = ref(null)
-const controlsExpanded = ref(false)
-const showOpponent = ref(false)
+const opponentMode = ref('off')
 
-function toggleControlsExpanded() {
-  controlsExpanded.value = !controlsExpanded.value
-  if (controlsExpanded.value) showBench.value = false
+const isOpponentVisible = computed(() => opponentMode.value !== 'off')
+
+const opponentModeTitle = computed(() => {
+  const label = getOpponentModeLabel(opponentMode.value)
+  return `${label} — tik voor volgende modus`
+})
+
+const opponentModeIcon = computed(() => {
+  const icons = {
+    off: 'shield',
+    mirror: 'flip',
+    optimal: 'shield',
+    alternative: 'shuffle',
+  }
+  return icons[opponentMode.value] ?? 'shield'
+})
+
+function cycleOpponentMode() {
+  const idx = OPPONENT_MODES.indexOf(opponentMode.value)
+  opponentMode.value = OPPONENT_MODES[(idx + 1) % OPPONENT_MODES.length]
 }
 
 function toggleBench() {
   showBench.value = !showBench.value
-  if (showBench.value) controlsExpanded.value = false
 }
 
 function closeMobileOverlays() {
-  controlsExpanded.value = false
   if (!isBenchDragging.value) showBench.value = false
 }
 
@@ -431,7 +452,7 @@ function closeOnOutsideClick(e) {
     showSwitcher.value = false
   }
   if (
-    (showBench.value || controlsExpanded.value)
+    showBench.value
     && formationControlsRef.value
     && !formationControlsRef.value.contains(e.target)
   ) {
@@ -534,8 +555,7 @@ function startNew() {
   lineupId.value   = null
   lineupName.value = ''
   flipped.value    = true
-  showOpponent.value = false
-  opponentSlots.value = []
+  opponentMode.value = 'off'
   if (availableFormations.value.length) {
     applyFormation(availableFormations.value[0])
   } else {
@@ -554,7 +574,8 @@ function serializeState() {
     lineupName: lineupName.value,
     selectedFormationId: selectedFormationId.value,
     flipped: flipped.value,
-    showOpponent: showOpponent.value,
+    opponentMode: opponentMode.value,
+    showOpponent: opponentMode.value !== 'off',
     fieldSlots: fieldSlots.value.map(s => ({
       slotId: s.slotId,
       position: s.position,
@@ -607,7 +628,7 @@ const opponentShirt = computed(() => getOpponentShirt(activeTeam.value?.shirt))
 const opponentSlots = ref([])
 
 function resetOpponentSlots() {
-  opponentSlots.value = buildOpponentSlots({
+  opponentSlots.value = buildOpponentSlotsForMode(opponentMode.value, {
     ageGroup: activeTeam.value?.ageGroup,
     formationId: selectedFormationId.value,
     fieldSlots: fieldSlots.value,
@@ -622,13 +643,13 @@ function handleOpponentMove({ slotId, x, y }) {
   slot.y = snapToGrid(y)
 }
 
-watch(showOpponent, (on) => {
-  if (on) resetOpponentSlots()
+watch(opponentMode, (mode) => {
+  if (mode !== 'off') resetOpponentSlots()
   else opponentSlots.value = []
 })
 
 watch(selectedFormationId, () => {
-  if (showOpponent.value) resetOpponentSlots()
+  if (isOpponentVisible.value) resetOpponentSlots()
 })
 
 function onFormationChange(event) {
@@ -658,7 +679,11 @@ function loadLineupById(existing) {
   lineupName.value = existing.name
   selectedFormationId.value = existing.formationId ?? null
   flipped.value    = existing.flipped ?? true
-  showOpponent.value = existing.showOpponent ?? false
+  if (existing.opponentMode && OPPONENT_MODES.includes(existing.opponentMode)) {
+    opponentMode.value = existing.opponentMode
+  } else {
+    opponentMode.value = existing.showOpponent ? 'optimal' : 'off'
+  }
 
   if (existing.formationId) {
     const formation = availableFormations.value.find(f => f.id === existing.formationId)
@@ -682,7 +707,7 @@ function loadLineupById(existing) {
   }
 
   store.setActiveLineup(existing.id)
-  if (showOpponent.value) resetOpponentSlots()
+  if (isOpponentVisible.value) resetOpponentSlots()
   refreshSnapshot()
 }
 
@@ -777,14 +802,14 @@ function applyFormation(formation) {
     playerId: prevMap[s.id] ?? null,
   }))
   selectedFormationId.value = formation.id
-  if (showOpponent.value) resetOpponentSlots()
+  if (isOpponentVisible.value) resetOpponentSlots()
 }
 
 function freeMode() {
   selectedFormationId.value = null
   // Keep only filled slots — no more ghost placeholder circles in free mode
   fieldSlots.value = fieldSlots.value.filter(s => s.playerId)
-  if (showOpponent.value) resetOpponentSlots()
+  if (isOpponentVisible.value) resetOpponentSlots()
 }
 
 function buildFreeSlots(count) {
@@ -1009,7 +1034,8 @@ function doSave() {
     name:        lineupName.value,
     formationId: selectedFormationId.value,
     flipped:     flipped.value,
-    showOpponent: showOpponent.value,
+    opponentMode: opponentMode.value,
+    showOpponent: opponentMode.value !== 'off',
     slots:       fieldSlots.value.map(s => ({ ...s })),
   })
   lineupId.value = saved.id
@@ -1188,7 +1214,7 @@ function drawShareCanvas() {
   ctx.fillRect(gx, my + mh, gw, PAD); ctx.strokeRect(gx, my + mh, gw, PAD)
 
   // Opponent tokens (drawn first, behind own team)
-  if (showOpponent.value) {
+  if (isOpponentVisible.value) {
     const opp = opponentShirt.value
     function drawOppCircle(cx, cy, r, num) {
       ctx.save()
@@ -1561,6 +1587,43 @@ async function shareViaWhatsApp() {
   padding-top: var(--sp-2);
 }
 
+.builder-header-controls-bar > .bench-anchor {
+  flex-shrink: 0;
+}
+
+.formation-dropdown--inline {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  padding: var(--sp-1) var(--sp-2);
+  font-size: 13px;
+}
+
+.chip-toggle--icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  min-width: 2.25rem;
+  padding: 0;
+}
+
+.chip-toggle--sidebar {
+  width: 100%;
+  min-width: 0;
+  height: 2.5rem;
+  padding: 0;
+}
+
+.chip-toggle--icon.active .material-symbols-rounded,
+.opponent-mode-mirror.active .material-symbols-rounded,
+.opponent-mode-optimal.active .material-symbols-rounded,
+.opponent-mode-alternative.active .material-symbols-rounded {
+  font-variation-settings: 'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 24;
+}
+
 .builder-header-controls-expand {
   position: absolute;
   top: 100%;
@@ -1708,12 +1771,14 @@ async function shareViaWhatsApp() {
 }
 
 .controls-options--sidebar {
-  flex-direction: column;
-  align-items: stretch;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
 }
 
 .controls-options--sidebar .chip-toggle {
-  width: 100%;
+  flex: 1;
   justify-content: center;
 }
 
